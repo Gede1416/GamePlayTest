@@ -37,6 +37,7 @@
 | `map` | `MapManager` |
 | `health` | `Health` |
 | `attack` | `Attack` |
+| `entity` | `Entity` / `PathPipelineFactory`（实体与管线装配） |
 | `skill` | `SkillManager` |
 | `ui` | `NavTest` / Canvas 测试按钮 |
 | `scene` | `SampleScene.unity` 里的对象/组件接线 |
