@@ -29,10 +29,10 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 
 - `ground`：MapManager（cellSize 1；地面 Plane 10×10 → Cols/Rows 10；`entities` = [entity, entity (1)]，`spawnPoints` = [(1,1), (0,0)] 是**格子坐标**）
 - `entity`：Rigidbody + BoxCollider + ObjectMover（`map` 已指向 ground 的 MapManager）+ **AutoPilot** + Health + SkillManager；4 个 skill_* 是它的子物体
-- `entity (1)`：BoxCollider + Health（`team: 1`，敌方）—— 寻路测试的参照物；`entity` 的 Health 是 `team: 0`
+- `entity (1)`：BoxCollider + Health（`team: 1`，敌方）+ **ObjectMover + AutoPilot**（`map` / `mover` 已接好，和 entity 对打）——**按用户要求不挂攻击/技能组件**（没有 Attack、没有 SkillManager）；`entity` 的 Health 是 `team: 0`
 - `TestCanvas`：Canvas(Overlay) + CanvasScaler + GraphicRaycaster + `NavTest`；子物体 btn_up / btn_down / btn_left / btn_right，onClick 分别指到 `NavTest.GoUp / GoDown / GoLeft / GoRight`
 - `EventSystem`：EventSystem + StandaloneInputModule（老输入系统）
-- `TurnManager`：只有 TurnManager 组件（没有渲染物），`actors` = [entity 先攻 20, entity (1) 先攻 10]，`totalRounds` 5、`autoStart` 开 → 播放就自动跑 5 回合；`entity (1)` 身上没有 AutoPilot，轮到它只是过一下
+- `TurnManager`：只有 TurnManager 组件（没有渲染物），`actors` = [entity 先攻 20, entity (1) 先攻 10]，`totalRounds` 5、`autoStart` 开 → 播放就自动跑 5 回合；两边都有 AutoPilot，所以每回合双方各行动一次
 - 场景检查：`python _validate_scene.py`（查 fileID 引用、组件归属、父子关系、SceneRoots、缩进）；手改场景前的备份在 `SampleScene.unity.bak`
 - 注意：按钮目标 = 参照物四周最近的可进入格子，`entity (1)` 现在被 spawnPoints 放在 (0,0) 角落，所以 Down / Left 会因出界而拒绝（日志会说明）
 
@@ -53,7 +53,7 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 - `SkillManager`：无冷却、无前摇、无打断（`Show` 在释放中直接忽略输入）
 - `MapManager`：占用数据只按 `entities` 列表重建（不在列表里的实体会走但不会被记录占用）；`entities` 被搬动/销毁后要自己调 `SyncOccupied()` 对齐；无地形/障碍数据、无寻路
 - `AutoPilot`：管线只在被调用时跑一次（不会周期性重算/自动追人）、路径算完不重算（中途被挡就放弃）、BFS 的目标格必须可进入（站着人的格子不能当终点）；三段现在由 `AutoPilot.Awake` 用 `??=` 兜底装配，**还没有实体类来统一构造**（用户说后续会加）
-- `TargetSources`：每次调用都 `FindObjectsOfType<Health>()` 并按曼哈顿距离挑最近（没有单位注册表/分帧）；"靠近"落地成"站到敌人四周离自己最近的空格"（敌人那格进不去）；"远离"全图扫描一遍
+- `TargetSources`：每次调用都 `FindObjectsOfType<Health>()` 并按曼哈顿距离挑最近（没有单位注册表/分帧）；"靠近"落地成"站到敌人四周离自己最近的空格"（敌人那格进不去），曼哈顿距离 ≤ 1 视为已贴身、这次不产生目标；"远离"全图扫描一遍
 - `Health.team`：阵营就是个 int，没有仇恨表/友军保护
 - `TurnManager`：行动内容写死成"跑一次 AutoPilot 管线"（没抽成可替换的行动接口）、没有回合开始/结束事件（只能轮询 `IsFinished`）、先攻相同时按列表顺序而不掷骰、没有"跳过/延后/守卫"这类规则
 - `NavTest`：纯测试组件——按钮文字用英文（内置字体没有中文字形）、不管连点/换目标、依赖 Inspector 里接好 map / anchor / pilot

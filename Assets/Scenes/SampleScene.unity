@@ -321,6 +321,8 @@ GameObject:
   - component: {fileID: 1195902035}
   - component: {fileID: 1195902033}
   - component: {fileID: 1195902032}
+  - component: {fileID: 8100000000000400}
+  - component: {fileID: 8100000000000401}
   m_Layer: 0
   m_Name: entity (1)
   m_TagString: Untagged
@@ -2328,6 +2330,35 @@ MonoBehaviour:
   totalRounds: 5
   turnDelay: 0.2
   autoStart: 1
+--- !u!114 &8100000000000400
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1195902030}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dd1e096b733fad7489a0e65fb6784422, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  map: {fileID: 1263441937}
+  speed: 5
+  moveInput: {x: 0, y: 0, z: 0}
+--- !u!114 &8100000000000401
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1195902030}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0927076b365a3c3489aac9246d43e097, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  map: {fileID: 1263441937}
+  mover: {fileID: 8100000000000400}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
