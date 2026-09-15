@@ -85,7 +85,8 @@ public class TurnManager : MonoBehaviour
                 if (pilot != null)
                 {
                     pilot.RunPipeline();                 // 轮到它，自己按管线找目标走
-                    while (pilot.IsFollowing) yield return null;   // 等它走完再轮下一个
+                    while (pilot.IsFollowing)
+                        yield return null;   // 等它走完再轮下一个
                 }
 
                 if (turnDelay > 0f) yield return new WaitForSeconds(turnDelay);
