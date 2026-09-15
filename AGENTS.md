@@ -59,7 +59,7 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 ## 版本管理
 
 - 仓库：https://github.com/Gede1416/GamePlayTest.git，remote 名 `origin`，分支 `main`
-- **每次改动都要单独提交一次**，提交信息用中文写清改了什么（用户靠提交记录回看修改）
+- **每次改动都要单独提交一次**，提交信息按 `COMMIT_CONVENTION.md` 写：`<type>(<scope>): <中文描述>`，type 用 feat/fix/docs/style/refactor/perf/test/build/ci/chore/revert，scope 参考该文件里的模块表，一个提交只做一件事（用户靠提交记录回看修改）
 - `.gitignore` 已排除 `Library/`、`Temp/`、`Logs/`、`obj/`、`UserSettings/` 和 Unity 生成的 `*.csproj` / `*.sln`
 - 提交脚本改动前的自检：把 `Assembly-CSharp.csproj` 里没列到的 `Assets\Scripts\*.cs` 临时补成 `<Compile Include="..." />`，再 `dotnet build Assembly-CSharp.csproj`；0 错误 0 警告后再提交，跑完把 csproj 还原（Unity 会自己重新生成）
 - 提交场景改动前的自检：`python _validate_scene.py`
