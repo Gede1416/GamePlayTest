@@ -35,6 +35,7 @@ public class ApproachNearestEnemy : ITargetSource
             var enemy = map.WorldToCell(h.transform.position);
             int d = MapManager.Manhattan(selfCell, enemy);
             if (d >= nearest) continue;                                         // 没有更近
+            if (d <= 1) return false;                                           // 最近的敌人已经贴着了，不用动
             if (!TrySpot(map, selfCell, enemy, out var spot)) continue;         // 它四周站不进去，换下一个
             nearest = d;
             cell = spot;
