@@ -63,6 +63,9 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 - `.gitignore` 已排除 `Library/`、`Temp/`、`Logs/`、`obj/`、`UserSettings/` 和 Unity 生成的 `*.csproj` / `*.sln`
 - 提交脚本改动前的自检：把 `Assembly-CSharp.csproj` 里没列到的 `Assets\Scripts\*.cs` 临时补成 `<Compile Include="..." />`，再 `dotnet build Assembly-CSharp.csproj`；0 错误 0 警告后再提交，跑完把 csproj 还原（Unity 会自己重新生成）
 - 提交场景改动前的自检：`python _validate_scene.py`
+- `commit` 不受沙箱影响；**`push` 需要放宽沙箱**（凭据管理器要创建管道，受限模式下报 `couldn't create signal pipe, Win32 error 5` + `could not read Username`）。推不上去就把命令交给用户在终端里跑一次。
+- 本仓库本地设了 `http.sslBackend=openssl`：这台机器上 Windows schannel 握不上手（`SEC_E_NO_CREDENTIALS`）
+- `SampleScene.unity.bak` 现在被 `.gitignore` 排除，git 已经能回看历史，不再需要它
 
 ## 改动前请注意
 
