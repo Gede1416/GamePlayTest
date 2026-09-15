@@ -36,6 +36,7 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 - `EventSystem`：EventSystem + StandaloneInputModule（老输入系统）
 - `TurnManager`：只有 TurnManager 组件（没有渲染物），`actors` = [entity 上的 Entity, entity (1) 上的 Entity]，先攻在各自 `Entity.speed` 上（20 / 10），`totalRounds` 5、`autoStart` 开 → 播放就自动跑 5 回合
 - 场景检查：`python _validate_scene.py`（查 fileID 引用、组件归属、父子关系、SceneRoots、缩进）；手改场景前的备份在 `SampleScene.unity.bak`
+- 编辑器工具 `Assets/Editor/SceneAutoReload.cs`：磁盘上的 `.unity` 一变就自动重新加载当前场景（内存里未保存的版本先另存到 `Temp/编辑器未保存版本_*.unity`）；菜单 `Tools/场景以磁盘为准` 开关（默认开）、`Tools/重新加载当前场景（以磁盘为准）` 手动触发；播放中不动场景
 - 注意：按钮目标 = 参照物四周最近的可进入格子，`entity (1)` 现在被 spawnPoints 放在 (0,0) 角落，所以 Down / Left 会因出界而拒绝（日志会说明）
 
 ## 约定
@@ -77,3 +78,5 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 
 `Assets/Scripts/` 下的文件用户会直接改（例如 `ObjectMover`、`Attack`、`Health` 都已被手改过）。
 **改之前先读当前文件，只做最小改动，不要整文件重写覆盖用户的手改。**
+
+`Assets/Scenes/SampleScene.unity` 也可以直接改：Unity 那边的 `SceneAutoReload` 会以磁盘为准自动重载（见"场景"一节的编辑器工具），所以**不需要再提醒用户先保存或手动重载**；只在编辑器里手工改场景时才会出现"编辑器版本覆盖磁盘"的情况（那时丢掉的编辑器版本会备份到 `Temp/`）。
