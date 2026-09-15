@@ -323,6 +323,7 @@ GameObject:
   - component: {fileID: 1195902032}
   - component: {fileID: 8100000000000400}
   - component: {fileID: 8100000000000401}
+  - component: {fileID: 8100000000000501}
   m_Layer: 0
   m_Name: entity (1)
   m_TagString: Untagged
@@ -447,6 +448,7 @@ GameObject:
   - component: {fileID: 1205230673}
   - component: {fileID: 8100000000000200}
   - component: {fileID: 1205230668}
+  - component: {fileID: 8100000000000500}
   m_Layer: 0
   m_Name: entity
   m_TagString: Untagged
@@ -718,7 +720,7 @@ MonoBehaviour:
   - {fileID: 1195902030}
   spawnPoints:
   - {x: 1, y: 1}
-  - {x: 0, y: 0}
+  - {x: 5, y: 5}
 --- !u!1 &1272324080
 GameObject:
   m_ObjectHideFlags: 0
@@ -2332,6 +2334,36 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   map: {fileID: 1263441937}
   mover: {fileID: 8100000000000400}
+--- !u!114 &8100000000000500
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1205230666}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 261e2f3423a142e887bea55152ffa5c3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  map: {fileID: 1263441937}
+  speed: 20
+  targetSourceType: 0
+--- !u!114 &8100000000000501
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1195902030}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 261e2f3423a142e887bea55152ffa5c3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  map: {fileID: 1263441937}
+  speed: 10
+  targetSourceType: 0
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
