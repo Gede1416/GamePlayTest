@@ -2345,7 +2345,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   map: {fileID: 1263441937}
-  speed: 20
+  speed: 10
   targetSourceType: 0
 --- !u!114 &8100000000000501
 MonoBehaviour:
@@ -2361,7 +2361,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   map: {fileID: 1263441937}
   speed: 10
-  targetSourceType: 0
+  targetSourceType: 1
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

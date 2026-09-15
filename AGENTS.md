@@ -10,14 +10,18 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 - 资源：`Assets/Scenes/SampleScene.unity`；材质 `Assets/prefab/{entity,ground,skill}-material.mat`
 - 场景已不是空场景：`entity` / `entity (1)` / `ground` / 4 个 `skill_*` / `TestCanvas` + 4 个按钮 / `EventSystem` / `TurnManager`，详见下面"场景"一节
 
-## 脚本清单（Assets/Scripts/）
+## 脚本清单
+
+- `Assets/Scripts/`：通用组件（`ObjectMover` / `Health` / `Attack` / `SkillManager` / `MapManager` / `TurnManager` / `Entity` / `NavTest`）
+- `Assets/Scripts/Pathfinding/`：自动寻路管线（`AutoPilot` / `PathPipeline` / `TargetSources` / `PathPipelineFactory`）
+- `Assets/Editor/`：编辑器工具（`SceneAutoReload`）
 
 | 文件 | 职责 | 对外接口 |
 |---|---|---|
 | `ObjectMover.cs` | 只收移动指令并播协程：`Move(step)` → 问 `MapManager.TryMove` 要合法性与落点 → `Vector3.Lerp` 走到落点；**不碰地图数据**，动画中 `walking` 阻断输入 | `MapManager map`、`float speed`、`Vector3 moveInput`、`bool Move(Vector2Int step)`、`bool IsMoving`、`static Vector2Int ToStep(Vector2)`、`static Vector3 ReadWASD()` |
-| `AutoPilot.cs` | 寻路管线编排（`[RequireComponent(typeof(ObjectMover))]`）：阶段一 → 阶段二 → 阶段三；三段由 `Entity.Wire()` 装配，`Awake` 里的 `??=` 只是兜底 | `ITargetSource TargetSource { get; set; }`、`IPathPlanner Planner { get; set; }`、`IPathExecutor Executor { get; set; }`、`bool RunPipeline()`、`bool MoveTo(Vector3)`、`bool MoveTo(Vector2Int)`、`void Stop()`、`List<Vector2Int> path`、`bool IsFollowing`、`int Team`（取自自己的 `Health.team`） |
-| `PathPipeline.cs` | 三个阶段接口（依赖一律构造函数注入）+ `BfsPathPlanner(map)`（BFS 四方向等权）+ `MoverPathExecutor(map, mover)`（逐格交给 ObjectMover） | `ITargetSource.TryGetTarget(out cell)`、`IPathPlanner.TryBuild(start, goal, path)`、`IPathExecutor.Run(path)` |
-| `TargetSources.cs` | 阶段一的两个实现，依赖由构造函数注入（map / self / team），距离一律用 `MapManager.Manhattan` | `ApproachNearestEnemy(map, self, team)`：走向最近的非己方，落在它四周离自己最近的空格；`FleeNearestEnemy(map, self, team)`：全图找离最近敌方最远、自己能站、走起来最省的格 |
+| `Pathfinding/AutoPilot.cs` | 寻路管线编排（`[RequireComponent(typeof(ObjectMover))]`）：阶段一 → 阶段二 → 阶段三；三段由 `Entity.Wire()` 装配，`Awake` 里的 `??=` 只是兜底 | `ITargetSource TargetSource { get; set; }`、`IPathPlanner Planner { get; set; }`、`IPathExecutor Executor { get; set; }`、`bool RunPipeline()`、`bool MoveTo(Vector3)`、`bool MoveTo(Vector2Int)`、`void Stop()`、`List<Vector2Int> path`、`bool IsFollowing`、`int Team`（取自自己的 `Health.team`） |
+| `Pathfinding/PathPipeline.cs` | 三个阶段接口（依赖一律构造函数注入）+ `BfsPathPlanner(map)`（BFS 四方向等权）+ `MoverPathExecutor(map, mover)`（逐格交给 ObjectMover） | `ITargetSource.TryGetTarget(out cell)`、`IPathPlanner.TryBuild(start, goal, path)`、`IPathExecutor.Run(path)` |
+| `Pathfinding/TargetSources.cs` | 阶段一的两个实现，依赖由构造函数注入（map / self / team），距离一律用 `MapManager.Manhattan` | `ApproachNearestEnemy(map, self, team)`：走向最近的非己方，落在它四周离自己最近的空格；`FleeNearestEnemy(map, self, team)`：全图找离最近敌方最远、自己能站、走起来最省的格 |
 | `NavTest.cs` | 测试用：`GoUp/GoDown/GoLeft/GoRight` 找 `anchor` 四周最近的可进入格子，再让 `pilot` 走过去；含手动目标 `manualTarget`（运行时改值即出发，右键组件菜单也能触发） | `MapManager map`、`Transform anchor`、`AutoPilot pilot`、`Vector2Int manualTarget`、`bool GoNearest(Vector2Int)`、`bool GoTo(Vector2Int)` |
 | `Health.cs` | 生命值 + 阵营，死亡时 `SetActive(false)` 并打日志 | `float maxHealth`、`int team`、`float Current`、`bool IsDead`、`TakeDamage(float)` |
 | `Attack.cs` | 碰触体（Collider + Is Trigger）碰到带 `Health` 的对象就扣血 | `float damage`、`Health haver`（排除自己/主人） |
@@ -25,7 +29,7 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 | `MapManager.cs` | 自己管理网格与格子占用数据（外部只读）：按 map 包围盒 x/z 划分网格、实体初始位置（格子坐标）、`TryMove` 裁决移动并改占用 | `Build()`、`SyncOccupied()`、`ResetEntities()`、`CellToWorld`、`WorldToCell`、`InBounds`、`IsOccupied`、`CanEnter`、`static Manhattan(a, b)`、`TryMove(from, step, out to)`、`CancelMove(from, to)` |
 | `TurnManager.cs` | 回合管理：每回合按 `Entity.speed` 让每个角色行动一次，跑满 `totalRounds` 就结束；角色"行动" = `Entity.TakeTurn()` 并等 `Pilot.IsFollowing` 走完 | `List<Entity> actors`、`int totalRounds`、`float turnDelay`、`bool autoStart`、`void StartBattle()`、`void StopBattle()`、`List<Entity> Order()`、`int CurrentRound`、`Entity CurrentActor`、`bool IsFinished` |
 | `Entity.cs` | 实体：一个角色身上组件的统一入口（`[RequireComponent]` ObjectMover + AutoPilot），`Awake` 里用工厂按枚举装配管线三段；`SourceType` 改枚举即重建阶段一 | `AutoPilot Pilot`、`ObjectMover Mover`、`Health Health`、`int Team`、`int speed`（先攻）、`TargetSourceType SourceType { get; set; }`、`void Wire()`、`bool TakeTurn()` |
-| `PathPipelineFactory.cs` | `TargetSourceType` 枚举（ApproachNearestEnemy / FleeNearestEnemy）+ 静态工厂：按枚举造阶段一、统一造阶段二/三 | `CreateSource(type, map, self, team)`、`CreatePlanner(map)`、`CreateExecutor(map, mover)`、`Wire(pilot, type, map, self, team, mover)` |
+| `Pathfinding/PathPipelineFactory.cs` | `TargetSourceType` 枚举（ApproachNearestEnemy / FleeNearestEnemy）+ 静态工厂：按枚举造阶段一、统一造阶段二/三 | `CreateSource(type, map, self, team)`、`CreatePlanner(map)`、`CreateExecutor(map, mover)`、`Wire(pilot, type, map, self, team, mover)` |
 
 ## 场景（Assets/Scenes/SampleScene.unity）
 
@@ -68,7 +72,7 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 - 仓库：https://github.com/Gede1416/GamePlayTest.git，remote 名 `origin`，分支 `main`
 - **每次改动都要单独提交一次**，提交信息按 `COMMIT_CONVENTION.md` 写：`<type>(<scope>): <中文描述>`，type 用 feat/fix/docs/style/refactor/perf/test/build/ci/chore/revert，scope 参考该文件里的模块表，一个提交只做一件事（用户靠提交记录回看修改）
 - `.gitignore` 已排除 `Library/`、`Temp/`、`Logs/`、`obj/`、`UserSettings/` 和 Unity 生成的 `*.csproj` / `*.sln`
-- 提交脚本改动前的自检：把 `Assembly-CSharp.csproj` 里没列到的 `Assets\Scripts\*.cs` 临时补成 `<Compile Include="..." />`，再 `dotnet build Assembly-CSharp.csproj`；0 错误 0 警告后再提交，跑完把 csproj 还原（Unity 会自己重新生成）
+- 提交脚本改动前的自检：复制 `Assembly-CSharp.csproj` 成临时 csproj，把所有 `<Compile Include="..." />` 换成一条 `<Compile Include="Assets\**\*.cs" />` 再 `dotnet build`（Unity 生成的清单会过期，文件搬过目录后尤其明显；这份 csproj 自带 UnityEditor 程序集引用，编辑器脚本一并覆盖）；0 错误 0 警告后再提交，临时 csproj / bin / obj 删掉
 - 提交场景改动前的自检：`python _validate_scene.py`
 - `commit` 不受沙箱影响；**`push` 需要放宽沙箱**（凭据管理器要创建管道，受限模式下报 `couldn't create signal pipe, Win32 error 5` + `could not read Username`）。推不上去就把命令交给用户在终端里跑一次。
 - 本仓库本地设了 `http.sslBackend=openssl`：这台机器上 Windows schannel 握不上手（`SEC_E_NO_CREDENTIALS`）
