@@ -2298,10 +2298,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   actors:
-  - go: {fileID: 1205230666}
-    speed: 20
-  - go: {fileID: 1195902030}
-    speed: 10
+  - {fileID: 8100000000000500}
+  - {fileID: 8100000000000501}
   totalRounds: 5
   turnDelay: 0.2
   autoStart: 1

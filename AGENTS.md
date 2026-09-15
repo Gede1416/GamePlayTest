@@ -23,7 +23,7 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 | `Attack.cs` | 碰触体（Collider + Is Trigger）碰到带 `Health` 的对象就扣血 | `float damage`、`Health haver`（排除自己/主人） |
 | `SkillManager.cs` | 缓存技能 GameObject 列表，键 1~6 显示对应项 0.5 秒，同时只能放一个 | `List<GameObject> skills`、`float showTime`、`Show(int index)` |
 | `MapManager.cs` | 自己管理网格与格子占用数据（外部只读）：按 map 包围盒 x/z 划分网格、实体初始位置（格子坐标）、`TryMove` 裁决移动并改占用 | `Build()`、`SyncOccupied()`、`ResetEntities()`、`CellToWorld`、`WorldToCell`、`InBounds`、`IsOccupied`、`CanEnter`、`static Manhattan(a, b)`、`TryMove(from, step, out to)`、`CancelMove(from, to)` |
-| `TurnManager.cs` | 回合管理：每回合按先攻让每个角色行动一次，跑满 `totalRounds` 就结束；角色"行动" = 跑一次它身上的 `AutoPilot` 管线并等它走完 | `List<Actor> actors`（`GameObject go` + `int speed`）、`int totalRounds`、`float turnDelay`、`bool autoStart`、`void StartBattle()`、`void StopBattle()`、`List<Actor> Order()`、`int CurrentRound`、`Actor CurrentActor`、`bool IsFinished` |
+| `TurnManager.cs` | 回合管理：每回合按 `Entity.speed` 让每个角色行动一次，跑满 `totalRounds` 就结束；角色"行动" = `Entity.TakeTurn()` 并等 `Pilot.IsFollowing` 走完 | `List<Entity> actors`、`int totalRounds`、`float turnDelay`、`bool autoStart`、`void StartBattle()`、`void StopBattle()`、`List<Entity> Order()`、`int CurrentRound`、`Entity CurrentActor`、`bool IsFinished` |
 | `Entity.cs` | 实体：一个角色身上组件的统一入口（`[RequireComponent]` ObjectMover + AutoPilot），`Awake` 里用工厂按枚举装配管线三段；`SourceType` 改枚举即重建阶段一 | `AutoPilot Pilot`、`ObjectMover Mover`、`Health Health`、`int Team`、`int speed`（先攻）、`TargetSourceType SourceType { get; set; }`、`void Wire()`、`bool TakeTurn()` |
 | `PathPipelineFactory.cs` | `TargetSourceType` 枚举（ApproachNearestEnemy / FleeNearestEnemy）+ 静态工厂：按枚举造阶段一、统一造阶段二/三 | `CreateSource(type, map, self, team)`、`CreatePlanner(map)`、`CreateExecutor(map, mover)`、`Wire(pilot, type, map, self, team, mover)` |
 
@@ -34,7 +34,7 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 - `entity (1)`：BoxCollider + Health（`team: 1`，敌方）+ **ObjectMover + AutoPilot**（`map` / `mover` 已接好）+ **Entity(先攻 10)** ——**按用户要求不挂攻击/技能组件**（没有 Attack、没有 SkillManager）
 - `TestCanvas`：Canvas(Overlay) + CanvasScaler + GraphicRaycaster + `NavTest`；子物体 btn_up / btn_down / btn_left / btn_right，onClick 分别指到 `NavTest.GoUp / GoDown / GoLeft / GoRight`
 - `EventSystem`：EventSystem + StandaloneInputModule（老输入系统）
-- `TurnManager`：只有 TurnManager 组件（没有渲染物），`actors` = [entity 先攻 20, entity (1) 先攻 10]，`totalRounds` 5、`autoStart` 开 → 播放就自动跑 5 回合；两边都有 AutoPilot，所以每回合双方各行动一次
+- `TurnManager`：只有 TurnManager 组件（没有渲染物），`actors` = [entity 上的 Entity, entity (1) 上的 Entity]，先攻在各自 `Entity.speed` 上（20 / 10），`totalRounds` 5、`autoStart` 开 → 播放就自动跑 5 回合
 - 场景检查：`python _validate_scene.py`（查 fileID 引用、组件归属、父子关系、SceneRoots、缩进）；手改场景前的备份在 `SampleScene.unity.bak`
 - 注意：按钮目标 = 参照物四周最近的可进入格子，`entity (1)` 现在被 spawnPoints 放在 (0,0) 角落，所以 Down / Left 会因出界而拒绝（日志会说明）
 
@@ -57,8 +57,8 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 - `AutoPilot`：管线只在被调用时跑一次（不会周期性重算/自动追人）、路径算完不重算（中途被挡就放弃）、BFS 的目标格必须可进入（站着人的格子不能当终点）；三段装配以 `Entity.Wire()` 为准，`AutoPilot.Awake` 里的 `??=` 只是没挂 Entity 时的兜底
 - `TargetSources`：每次调用都 `FindObjectsOfType<Health>()` 并按曼哈顿距离挑最近（没有单位注册表/分帧）；"靠近"落地成"站到敌人四周离自己最近的空格"（敌人那格进不去），曼哈顿距离 ≤ 1 视为已贴身、这次不产生目标；"远离"全图扫描一遍
 - `Health.team`：阵营就是个 int，没有仇恨表/友军保护
-- `TurnManager`：行动内容写死成"跑一次 AutoPilot 管线"（没抽成可替换的行动接口）、没有回合开始/结束事件（只能轮询 `IsFinished`）、先攻相同时按列表顺序而不掷骰、没有"跳过/延后/守卫"这类规则
-- `Entity` / `PathPipelineFactory`：先攻 `speed` 在 `Entity` 和 `TurnManager.actors` 里各存了一份（`TurnManager` 还是直接 `GetComponent<AutoPilot>()`，没改用 `Entity.TakeTurn()`）；`Entity.Wire()` 每调一次就重建三段（正常只在 `Awake` 调一次，运行中重复调不会中断正在走的协程）
+- `TurnManager`：行动内容写死成 `Entity.TakeTurn()`（跑一次寻路管线，没抽成可替换的行动接口）、没有回合开始/结束事件（只能轮询 `IsFinished`）、先攻相同时按列表顺序而不掷骰、没有"跳过/延后/守卫"这类规则
+- `Entity` / `PathPipelineFactory`：先攻只有 `Entity.speed` 一份（`TurnManager` 的排序和行动都走 Entity）；`Entity.Wire()` 每调一次就重建三段（正常只在 `Awake` 调一次，运行中重复调不会打断正在走的协程）
 - `NavTest`：纯测试组件——按钮文字用英文（内置字体没有中文字形）、不管连点/换目标、依赖 Inspector 里接好 map / anchor / pilot
 - 场景里还没有任何预制体，脚本都还没在播放模式下跑过（两个角色都没有 Rigidbody，移动是直接写 `transform.position`）
 

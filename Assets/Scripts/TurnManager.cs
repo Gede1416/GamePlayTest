@@ -4,23 +4,13 @@ using System.Linq;
 using UnityEngine;
 
 /// <summary>
-/// 回合管理器：每回合按先攻（speed 大的先动）依次让每个角色行动一次，跑满给定的回合数就结束。
-/// 角色的"行动" = 轮到它时跑一次它身上的 AutoPilot 管线，并等它走完再轮下一个。
+/// 回合管理器：每回合按先攻（Entity.speed 大的先动）依次让每个角色行动一次，跑满给定的回合数就结束。
+/// 角色的"行动" = 调 Entity.TakeTurn() 跑一次寻路管线，并等它走完再轮下一个。
 /// </summary>
 public class TurnManager : MonoBehaviour
 {
-    [System.Serializable]
-    public class Actor
-    {
-        [Tooltip("角色物体")]
-        public GameObject go;
-
-        [Tooltip("先攻：数值大的先动；相同则按列表顺序")]
-        public int speed = 10;
-    }
-
-    [Tooltip("参战角色")]
-    public List<Actor> actors = new List<Actor>();
+    [Tooltip("参战角色：行动顺序按各自 Entity.speed 排（大的先动，相同则按列表顺序）")]
+    public List<Entity> actors = new List<Entity>();
 
     [Tooltip("给定回合数：跑满这个回合数就结束")]
     public int totalRounds = 10;
@@ -35,7 +25,7 @@ public class TurnManager : MonoBehaviour
     public int CurrentRound { get; private set; }
 
     /// <summary>当前轮到谁</summary>
-    public Actor CurrentActor { get; private set; }
+    public Entity CurrentActor { get; private set; }
 
     /// <summary>回合数跑满了</summary>
     public bool IsFinished { get; private set; }
@@ -64,7 +54,7 @@ public class TurnManager : MonoBehaviour
     }
 
     /// <summary>本回合的行动顺序：先攻大的在前，相同则保持列表顺序</summary>
-    public List<Actor> Order()
+    public List<Entity> Order()
     {
         return actors.Where(a => a != null).OrderByDescending(a => a.speed).ToList();
     }
@@ -77,17 +67,13 @@ public class TurnManager : MonoBehaviour
 
             foreach (var actor in Order())
             {
-                if (actor.go == null || !actor.go.activeInHierarchy) continue;   // 死了/被禁用就跳过这次行动
+                if (!actor.gameObject.activeInHierarchy) continue;   // 死了/被禁用就跳过这次行动
                 CurrentActor = actor;
-                Debug.Log($"[TurnManager] 第 {CurrentRound} 回合，{actor.go.name} 行动（先攻 {actor.speed}）");
+                Debug.Log($"[TurnManager] 第 {CurrentRound} 回合，{actor.name} 行动（先攻 {actor.speed}）");
 
-                var pilot = actor.go.GetComponent<AutoPilot>();
-                if (pilot != null)
-                {
-                    pilot.RunPipeline();                 // 轮到它，自己按管线找目标走
-                    while (pilot.IsFollowing)
+                if (actor.TakeTurn() && actor.Pilot != null)   // 轮到它，自己按管线找目标走
+                    while (actor.Pilot.IsFollowing)
                         yield return null;   // 等它走完再轮下一个
-                }
 
                 if (turnDelay > 0f) yield return new WaitForSeconds(turnDelay);
             }
