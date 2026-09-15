@@ -14,6 +14,9 @@ public class Entity : MonoBehaviour
     [Tooltip("先攻（回合管理器排序用）")]
     public int speed = 10;
 
+    [Tooltip("每回合最多走几格；0 = 不限")]
+    public int moveSteps;
+
     [Tooltip("阶段一（获得目标点）用哪种实现")]
     [SerializeField] TargetSourceType targetSourceType = TargetSourceType.ApproachNearestEnemy;
 
@@ -48,6 +51,15 @@ public class Entity : MonoBehaviour
         if (map == null) map = FindObjectOfType<MapManager>();
 
         Wire();
+        ApplySteps();
+    }
+
+    /// <summary>把每回合步数上限写给移动组件，并把剩余步数补满（改 moveSteps 后调它）</summary>
+    public void ApplySteps()
+    {
+        if (Mover == null) return;
+        Mover.stepLimit = moveSteps;
+        Mover.ResetSteps();
     }
 
     /// <summary>按当前枚举装配管线三段（工厂造接口，这里塞进 AutoPilot）</summary>
@@ -56,9 +68,10 @@ public class Entity : MonoBehaviour
         PathPipelineFactory.Wire(Pilot, targetSourceType, map, transform, Team, Mover);
     }
 
-    /// <summary>轮到它行动：按管线找目标并走过去</summary>
+    /// <summary>轮到它行动：先补满步数，再按管线找目标走过去</summary>
     public bool TakeTurn()
     {
+        ApplySteps();
         return Pilot != null && Pilot.RunPipeline();
     }
 }
