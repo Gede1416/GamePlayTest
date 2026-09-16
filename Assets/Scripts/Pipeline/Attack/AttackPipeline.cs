@@ -109,7 +109,7 @@ public static class TargetPicker
 /// <summary>近战目标获取：攻击范围 1 格、1 个目标</summary>
 public class MeleeTargetFinder : ITargetFinder
 {
-    public const int Range = 1;
+    public const int Range = 2;
     public const int TargetCount = 1;
 
     readonly MapManager map;
@@ -128,7 +128,7 @@ public class MeleeTargetFinder : ITargetFinder
 /// <summary>远程目标获取：攻击范围 3 格、1 个目标</summary>
 public class RangedTargetFinder : ITargetFinder
 {
-    public const int Range = 3;
+    public const int Range = 4;
     public const int TargetCount = 1;
 
     readonly MapManager map;

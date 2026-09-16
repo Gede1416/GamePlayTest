@@ -22,7 +22,6 @@ public class Health : MonoBehaviour
         if (amount <= 0f) return;
         if (IsDead) return;
         Current = Mathf.Max(0f, Current - amount);
-        Debug.Log($"health {this.Current} IsDead{IsDead}");
         if (IsDead) this.gameObject.SetActive(false);
     }
 }

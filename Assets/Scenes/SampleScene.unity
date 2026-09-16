@@ -317,16 +317,16 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1205230671}
-  - component: {fileID: 1205230670}
-  - component: {fileID: 1205230669}
+  - component: {fileID: 8100000000000700}
+  - component: {fileID: 8100000000000200}
   - component: {fileID: 1205230672}
   - component: {fileID: 1205230673}
-  - component: {fileID: 8100000000000200}
-  - component: {fileID: 1205230668}
   - component: {fileID: 8100000000000500}
-  - component: {fileID: 8100000000000700}
+  - component: {fileID: 1205230668}
+  - component: {fileID: 1205230670}
+  - component: {fileID: 1205230669}
   m_Layer: 0
-  m_Name: entity
+  m_Name: Ranger
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -446,8 +446,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 48375593c78604c4d84deaf2d5194cd2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maxHealth: 100
-  team: 0
+  maxHealth: 50
+  team: 1
   Current: 0
 --- !u!1 &1263441932
 GameObject:
@@ -575,7 +575,7 @@ MonoBehaviour:
   - {fileID: 1615906525}
   spawnPoints:
   - {x: 1, y: 1}
-  - {x: 5, y: 5}
+  - {x: 3, y: 3}
 --- !u!1 &1615906525
 GameObject:
   m_ObjectHideFlags: 0
@@ -585,16 +585,16 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1615906534}
-  - component: {fileID: 1615906533}
-  - component: {fileID: 1615906532}
+  - component: {fileID: 1615906527}
+  - component: {fileID: 1615906529}
   - component: {fileID: 1615906531}
   - component: {fileID: 1615906530}
-  - component: {fileID: 1615906529}
-  - component: {fileID: 1615906528}
   - component: {fileID: 1615906526}
-  - component: {fileID: 1615906527}
+  - component: {fileID: 1615906528}
+  - component: {fileID: 1615906533}
+  - component: {fileID: 1615906532}
   m_Layer: 0
-  m_Name: entity (1)
+  m_Name: Melee
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -613,7 +613,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   uuid: 2
-  initiative: 10
+  initiative: 44
   moveSteps: 4
   map: {fileID: 1263441937}
 --- !u!114 &1615906527
@@ -629,7 +629,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   attackType: 0
-  damage: 10
+  damage: 20
   cooldown: 0
   map: {fileID: 1263441937}
 --- !u!65 &1615906528
@@ -680,7 +680,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 48375593c78604c4d84deaf2d5194cd2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maxHealth: 100
+  maxHealth: 50
   team: 0
   Current: 0
 --- !u!114 &1615906531
@@ -719,7 +719,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 8101e28f797e3994a8bcdf2a8cba54ae, type: 2}
+  - {fileID: 2100000, guid: 3da4346d79ebfcf4785ba402cf7eb25c, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -1814,7 +1814,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0927076b365a3c3489aac9246d43e097, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  targetSourceType: 0
+  targetSourceType: 1
   map: {fileID: 1263441937}
   mover: {fileID: 1205230672}
 --- !u!1 &8100000000000300
@@ -1881,7 +1881,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   uuid: 1
   initiative: 10
-  moveSteps: 4
+  moveSteps: 3
   map: {fileID: 1263441937}
 --- !u!114 &8100000000000700
 MonoBehaviour:
@@ -1895,7 +1895,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a8b16c453fdc47e191ba766d673b6c5e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  attackType: 0
+  attackType: 1
   damage: 10
   cooldown: 0
   map: {fileID: 1263441937}
