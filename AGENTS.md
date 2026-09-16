@@ -75,7 +75,7 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 - `Attacker` / `Skill`：攻击管线**没有接进回合循环**（要放技能得自己调 `Attacker.RunPipeline()`，冷却要每回合调一次 `TickTurn()`）；目标获取从 `MapManager.entities` 里找，只认"挂了 `Entity` 且有 `Health`"的单位、按曼哈顿距离排序；`Skill.Cast` 默认只扣血（没有击退/buff/动画表现）；技能列表与碰触体那套 `SkillManager` + `Attack` 是两套并行机制
 - 预制体：`Assets/prefab/*.prefab` 只是对象模板，跨对象引用会被 Unity 置空（见「场景」一节）；场景里目前用的还是原来那几个物体，没有换成预制体实例（要换成实例就用 `SaveAsPrefabAssetAndConnect`）
 - `NavTest`：纯测试组件——按钮文字用英文（内置字体没有中文字形）、不管连点/换目标、依赖 Inspector 里接好 map / anchor / pilot
-- 场景里还没有任何预制体，脚本都还没在播放模式下跑过（两个角色都没有 Rigidbody，移动是直接写 `transform.position`）
+- 脚本都还没在播放模式下跑过（两个角色都没有 Rigidbody，移动是直接写 `transform.position`）；预制体由 `BattlePrefabExporter` 生成，见「场景」一节
 
 ## 版本管理
 
