@@ -348,7 +348,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   map: {fileID: 0}
   speed: 5
-  moveInput: {x: 0, y: 0, z: 0}
   stepLimit: 0
   stepsLeft: 0
 --- !u!114 &1720110436175590926
@@ -431,10 +430,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 261e2f3423a142e887bea55152ffa5c3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  map: {fileID: 0}
-  speed: 10
+  uuid: 1
+  initiative: 10
   moveSteps: 4
   targetSourceType: 0
+  map: {fileID: 0}
 --- !u!114 &5826571098570584350
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -447,12 +447,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a8b16c453fdc47e191ba766d673b6c5e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  skill:
-    skillName: "\u666E\u901A\u653B\u51FB"
-    range: 1
-    targetCount: 1
-    cooldown: 0
-    damage: 10
+  attackType: 0
+  damage: 10
+  cooldown: 0
   map: {fileID: 0}
 --- !u!1 &6860575862204355731
 GameObject:
