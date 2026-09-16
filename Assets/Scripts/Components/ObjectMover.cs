@@ -5,7 +5,7 @@ using UnityEngine;
 /// 3D 俯视角格子移动（y 为高度，在 XZ 平面移动）。
 /// 只负责：收移动指令 -> 问 MapManager 要合法性与落点 -> 用协程把物体挪到落点。
 /// 自己不改任何地图数据（占用、格子都由 MapManager 管）。
-/// 指令来源：外部赋值 moveInput（优先），否则读取 WASD；外部脚本也可直接调 Move。
+/// 没有键盘输入：移动指令只从外部来（移动管线调 Move，其他脚本也可以直接调）。
 /// </summary>
 public class ObjectMover : MonoBehaviour
 {
@@ -14,9 +14,6 @@ public class ObjectMover : MonoBehaviour
 
     [Tooltip("移动速度（世界单位/秒）；走一格用时 = 地图格子边长 / 速度")]
     public float speed = 5f;
-
-    [Tooltip("外部输入（移动指令）：每帧由其他脚本赋值即可覆盖键盘输入；留空/零则使用 WASD")]
-    public Vector3 moveInput;
 
     [Tooltip("每回合最多走几格；0 = 不限（由实体类 Entity.moveSteps 配置）")]
     public int stepLimit;
@@ -41,12 +38,6 @@ public class ObjectMover : MonoBehaviour
         if (map == null) map = FindObjectOfType<MapManager>();
         if (map == null) Debug.LogWarning($"{name}: 没找到 MapManager，移动不会生效", this);
         if (stepLimit > 0 && stepsLeft <= 0) ResetSteps();   // 没挂 Entity 时自己补一次，免得一上来就不能走
-    }
-
-    void Update()
-    {
-        Vector3 input = moveInput.sqrMagnitude > 0f ? moveInput : ReadWASD();
-        Move(ToStep(new Vector2(input.x, input.z)));
     }
 
     /// <summary>
@@ -88,19 +79,5 @@ public class ObjectMover : MonoBehaviour
 
         transform.position = target;
         walking = false;
-    }
-
-    /// <summary>平面输入 -> 一格方向（只走四方向，取分量大的轴；无输入返回零）</summary>
-    public static Vector2Int ToStep(Vector2 input)
-    {
-        if (input.sqrMagnitude < 0.01f) return Vector2Int.zero;
-        if (Mathf.Abs(input.x) >= Mathf.Abs(input.y)) return new Vector2Int(input.x > 0f ? 1 : -1, 0);
-        return new Vector2Int(0, input.y > 0f ? 1 : -1);
-    }
-
-    /// <summary>WASD（含方向键）-> Vector3，值为 -1 / 0 / 1；z 分量对应世界 z</summary>
-    public static Vector3 ReadWASD()
-    {
-        return new Vector3(Input.GetAxisRaw("Horizontal"), 0, Input.GetAxisRaw("Vertical"));
     }
 }

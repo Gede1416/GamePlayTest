@@ -21,7 +21,7 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 
 | 文件 | 职责 | 对外接口 |
 |---|---|---|
-| `Components/ObjectMover.cs` | 只收移动指令并播协程：`Move(step)` → 查剩余步数 → 问 `MapManager.TryMove` 要合法性与落点 → `Vector3.Lerp` 走到落点；**不碰地图数据**，动画中 `walking` 阻断输入 | `MapManager map`、`float speed`、`Vector3 moveInput`、`int stepLimit`（每回合步数上限，0=不限）、`int stepsLeft`、`bool HasSteps`、`void ResetSteps()`、`bool Move(Vector2Int step)`、`bool IsMoving`、`static Vector2Int ToStep(Vector2)`、`static Vector3 ReadWASD()` |
+| `Components/ObjectMover.cs` | 只收移动指令并播协程：`Move(step)` → 查剩余步数 → 问 `MapManager.TryMove` 要合法性与落点 → `Vector3.Lerp` 走到落点；**不碰地图数据**，动画中 `walking` 阻断后续指令；**没有键盘输入**（WASD 已移除，指令只从移动管线/外部脚本来） | `MapManager map`、`float speed`、`int stepLimit`（每回合步数上限，0=不限）、`int stepsLeft`、`bool HasSteps`、`void ResetSteps()`、`bool Move(Vector2Int step)`、`bool IsMoving` |
 | `Pipeline/Movement/AutoPilot.cs` | 寻路管线编排（`[RequireComponent(typeof(ObjectMover))]`）：阶段一 → 阶段二 → 阶段三；三段由 `Entity.Wire()` 装配，`Awake` 里的 `??=` 只是兜底 | `ITargetSource TargetSource { get; set; }`、`IPathPlanner Planner { get; set; }`、`IPathExecutor Executor { get; set; }`、`bool RunPipeline()`、`bool MoveTo(Vector3)`、`bool MoveTo(Vector2Int)`、`void Stop()`、`List<Vector2Int> path`、`bool IsFollowing`、`int Team`（取自自己的 `Health.team`） |
 | `Pipeline/Movement/PathPipeline.cs` | 三个阶段接口（依赖一律构造函数注入）+ `BfsPathPlanner(map)`（BFS 四方向等权）+ `MoverPathExecutor(map, mover)`（逐格交给 ObjectMover） | `ITargetSource.TryGetTarget(out cell)`、`IPathPlanner.TryBuild(start, goal, path)`、`IPathExecutor.Run(path)` |
 | `Pipeline/Movement/TargetSources.cs` | 阶段一的两个实现，依赖由构造函数注入（map / self / team / mover），距离一律用 `MapManager.Manhattan` | `ApproachNearestEnemy(map, self, team)`：走向最近的非己方，落在它四周离自己最近的空格；`FleeNearestEnemy(map, self, team, mover)`：只在**本回合走得到**的格子里（曼哈顿距离 ≤ `mover.stepsLeft`；`stepLimit` 为 0 时视为不限）挑离最近敌方最远的格 |
@@ -62,7 +62,7 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 
 ## 已知缺口（用户明确跳过的）
 
-- `ObjectMover`：格子移动是四方向直线插值——无斜向、无转向、无寻路绕障碍；`TryMove` 通过时起点的占用就放开了，所以动画中起点是空的（要"动画中两侧都占住"就加个 `Arrive(from)`，到达时再放开起点）；步数上限（`stepLimit`）对**所有**移动都生效（WASD 和寻路都走同一个 `Move()` 入口），一格算一步，`Entity.TakeTurn()` 时补满，回合外调 `MoveTo` 也吃这个限制
+- `ObjectMover`：格子移动是四方向直线插值——无斜向、无转向、无寻路绕障碍；`TryMove` 通过时起点的占用就放开了，所以动画中起点是空的（要"动画中两侧都占住"就加个 `Arrive(from)`，到达时再放开起点）；步数上限（`stepLimit`）对所有移动指令都生效（`Move()` 是唯一入口），一格算一步，`Entity.TakeTurn()` 时补满，回合外调 `MoveTo` 也吃这个限制
 - `Attack`：无攻击冷却、无阵营/友伤过滤、无挥砍窗口（靠启用/禁用 Collider 触发 enter）
 - `SkillManager`：无冷却、无前摇、无打断（`Show` 在释放中直接忽略输入）
 - `MapManager`：占用数据只按 `entities` 列表重建（不在列表里的实体会走但不会被记录占用）；`entities` 被搬动/销毁后要自己调 `SyncOccupied()` 对齐；无地形/障碍数据、无寻路
