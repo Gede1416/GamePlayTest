@@ -17,7 +17,7 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 - `Assets/Scripts/Components/`：功能组件（`Health` / `ObjectMover` / `Attack`）
 - `Assets/Scripts/Pipeline/Movement/`：移动管线（`AutoPilot` / `PathPipeline` / `TargetSources` / `PathPipelineFactory`）
 - `Assets/Scripts/Pipeline/Attack/`：攻击管线（`Attacker` / `AttackPipeline`）
-- `Assets/Editor/`：编辑器工具（`SceneAutoReload`）
+- `Assets/Editor/`：编辑器工具（`SceneAutoReload`、`BattlePrefabExporter`）
 
 | 文件 | 职责 | 对外接口 |
 |---|---|---|
@@ -45,7 +45,8 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 - `EventSystem`：EventSystem + StandaloneInputModule（老输入系统）
 - `TurnManager`：只有 TurnManager 组件（没有渲染物），`actors` = [entity 上的 Entity, entity (1) 上的 Entity]，先攻在各自 `Entity.initiative` 上（现在都是 10 → 相同则按列表顺序，entity 先动），`totalRounds` 5、`autoStart` 开 → 播放就自动跑 5 回合
 - 场景检查：`python _validate_scene.py`（查 fileID 引用、组件归属、父子关系、SceneRoots、缩进）；手改场景前的备份在 `SampleScene.unity.bak`
-- 预制体：`Assets/prefab/Entity.prefab`（实体，来自场景 `entity`）、`Map.prefab`（地图，来自 `ground`）、`TurnController.prefab`（回合控制器，来自 `TurnManager`）——由编辑器工具 `Assets/Editor/BattlePrefabExporter.cs` 生成（首次加载自动跑一次，菜单 `Tools/导出战斗对象预制体` 可重跑）。
+- 预制体：`Assets/prefab/Entity.prefab`（实体，来自场景 `entity`）、`Map.prefab`（地图，来自 `ground`）、`TurnController.prefab`（回合控制器，来自 `TurnManager`）——由编辑器工具 `Assets/Editor/BattlePrefabExporter.cs` 生成（首次加载自动跑一次，标记在 `Temp/battle-prefabs.done`；**结构改了要删掉标记或走菜单 `Tools/导出战斗对象预制体` 重新导出**，否则预制体里的字段会停留在旧版本）。
+  `Entity.prefab` 里带着导出时那份 `uuid`：**实例化多个实体时要各自覆盖 uuid**（预制体覆盖），否则地图会报 uuid 重复。
   注意：跨对象的**场景**引用（`MapManager` 组件、`MapManager.entities`、`TurnManager.actors` 等）Unity 不允许写进预制体，生成时会被置空；运行时靠组件 `Awake` 里的 `FindObjectOfType<MapManager>()` 找回来，`actors` / `entities` 这类列表要在场景里的实例上重新接。
 - 编辑器工具 `Assets/Editor/SceneAutoReload.cs`：磁盘上的 `.unity` 一变就自动重新加载当前场景（内存里未保存的版本先另存到 `Temp/编辑器未保存版本_*.unity`）；菜单 `Tools/场景以磁盘为准` 开关（默认开）、`Tools/重新加载当前场景（以磁盘为准）` 手动触发；播放中不动场景
 - 注意：按钮目标 = 参照物四周最近的可进入格子；spawnPoints 现在是 [(1,1), (5,5)]，`entity (1)` 不再贴角落，四个方向都能走
@@ -64,7 +65,7 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 
 ## 已知缺口（用户明确跳过的）
 
-- `ObjectMover`：格子移动是四方向直线插值——无斜向、无转向、无寻路绕障碍；`TryMove` 通过时起点的占用就放开了，所以动画中起点是空的（要"动画中两侧都占住"就加个 `Arrive(from)`，到达时再放开起点）；步数上限（`stepLimit`）对所有移动指令都生效（`Move()` 是唯一入口），一格算一步，`Entity.TakeTurnRoutine()` 开始时补满，回合外调 `MoveTo` 也吃这个限制
+- `ObjectMover`：格子移动是四方向直线插值——无斜向、无转向、无寻路绕障碍；`TryMove` 通过时起点的占用就放开了，所以动画中起点是空的（要"动画中两侧都占住"就加个 `Arrive(from)`，到达时再放开起点）；步数上限（`stepLimit`）对所有移动指令都生效（`Move()` 是唯一入口），一格算一步，`Entity.TakeTurnRoutine()` 开始时补满，回合外调 `MoveTo` 也吃这个限制；`MapManager.TryMove` 现在要求**起点也在网格内**（走到地图外的物体会拒绝移动）
 - `Attack`：无攻击冷却、无阵营/友伤过滤、无挥砍窗口（靠启用/禁用 Collider 触发 enter）
 - `SkillManager`：无冷却、无前摇、无打断（`Show` 在释放中直接忽略输入）
 - `MapManager`：地图数据只按 `entities` 列表重建（不在列表里的实体会走、格子记 `Unknown`，索引里查不到）；`entities` 被搬动/销毁后要自己调 `SyncOccupied()` 对齐；寻路是 `MapManager.FindPath`（四方向、每格等权 BFS，`BfsPathPlanner` 只是薄壳；A* / 加权代价没做）；无地形/障碍数据
@@ -78,6 +79,16 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 - `Entity.uuid`：场景里手填（`entity`=1、`entity (1)`=2）；`SyncOccupied()` 现在会查重但**只警告不修正**（重复时后者这次被跳过），uuid 分配器还没做
 - `NavTest`：纯测试组件——按钮文字用英文（内置字体没有中文字形）、不管连点/换目标、依赖 Inspector 里接好 map / anchor / pilot
 - 脚本都还没在播放模式下跑过（两个角色都没有 Rigidbody，移动是直接写 `transform.position`）；预制体由 `BattlePrefabExporter` 生成，见「场景」一节
+
+## 按用户给的结构做的重构（进度）
+
+- **P1 实体数据** ✅ `Entity`：uuid / 先攻(`initiative`) / 回合步数 / 生命值门面（`Hp`/`TakeDamage`，数据仍归 `Health`）/ `Init(EntityInitData)`；技能由管线组件承担，不单独存
+- **P2 地图数据** ✅ `MapManager`：`int[,] cells` 格子→uuid 二维图 + `Dictionary<int,Vector2Int>` uuid→位置（+ uuid→实体），查询 API 与 uuid 查重
+- **P3 寻路** ✅ 搬进 `MapManager.FindPath`，`BfsPathPlanner` 退成薄壳
+- **P4 回合** ✅ `TurnManager`：行动栈 `ActionStack`（每回合按先攻重建，`PopNext()` 出栈）+ `TurnState` 状态 + `Init(TurnInitData)`
+- **P5 移动管线「接近」** — 用户确认是笔误（现有 靠近/远离 即全部），未做
+- **P6 收尾** ✅ 场景 / 预制体同步 + 本文档校对（写这段时在做）
+- 未做：Map 配置对象（用户说暂时不用）
 
 ## 版本管理
 
