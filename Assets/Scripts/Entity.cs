@@ -21,9 +21,6 @@ public class Entity : MonoBehaviour
     [Tooltip("每回合最多走几格；0 = 不限")]
     public int moveSteps;
 
-    [Tooltip("移动管线类型（阶段一）：靠近 / 远离")]
-    [SerializeField] TargetSourceType targetSourceType = TargetSourceType.ApproachNearestEnemy;
-
     [Header("管线")]
     [Tooltip("地图管理器；留空则取场景里的第一个")]
     public MapManager map;
@@ -63,15 +60,11 @@ public class Entity : MonoBehaviour
         if (Health != null) Health.TakeDamage(amount);
     }
 
-    /// <summary>向外暴露的枚举属性：外部改它就会立刻按新枚举重建阶段一</summary>
+    /// <summary>移动管线类型：数据归 AutoPilot，这里只是转发（改它会重建移动管线阶段一）</summary>
     public TargetSourceType SourceType
     {
-        get => targetSourceType;
-        set
-        {
-            targetSourceType = value;
-            if (Pilot != null) Pilot.TargetSource = PathPipelineFactory.CreateSource(value, map, transform, Team, Mover);
-        }
+        get => Pilot != null ? Pilot.SourceType : TargetSourceType.ApproachNearestEnemy;
+        set { if (Pilot != null) Pilot.SourceType = value; }
     }
 
     void Awake()
@@ -97,11 +90,17 @@ public class Entity : MonoBehaviour
             initiative = data.initiative;
             moveSteps = data.moveSteps;
             if (data.map != null) map = data.map;
-            targetSourceType = data.moveSource;
+            SourceType = data.moveSource;
             if (Attacker != null) Attacker.Type = data.attackType;
         }
 
-        Wire();
+        // 管线装配下放在各组件内部（AutoPilot.Build / Attacker.Build），这里只把地图发下去
+        if (Pilot != null)
+        {
+            Pilot.map = map;
+            Pilot.Build();
+        }
+
         ApplySteps();
     }
 
@@ -119,12 +118,6 @@ public class Entity : MonoBehaviour
         if (Mover == null) return;
         Mover.stepLimit = moveSteps;
         Mover.ResetSteps();
-    }
-
-    /// <summary>按当前枚举装配管线三段（工厂造接口，这里塞进 AutoPilot）</summary>
-    public void Wire()
-    {
-        PathPipelineFactory.Wire(Pilot, targetSourceType, map, transform, Team, Mover);
     }
 
     /// <summary>

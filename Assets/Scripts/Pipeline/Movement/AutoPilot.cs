@@ -3,14 +3,17 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// 自动寻路管线编排，三段可替换：
+/// 自动寻路管线编排（挂在实体上），三段可替换：
 /// 阶段一 获得目标点（ITargetSource）-> 阶段二 构建行动路径（IPathPlanner）-> 阶段三 执行路径（IPathExecutor）。
-/// 三段都在构造时注入依赖，这里只负责装配默认实现并驱动流程；以后交给实体类装配。
+/// 装配由本组件自己做（Build() 调 PathPipelineFactory，按 TargetSourceType 枚举造阶段一），和攻击管线的 Attacker 一个套路。
 /// 只读地图数据（CanEnter），自己不占格子；每一步的合法性仍由 ObjectMover + MapManager 裁决。
 /// </summary>
 [RequireComponent(typeof(ObjectMover))]
 public class AutoPilot : MonoBehaviour
 {
+    [Tooltip("移动管线类型（阶段一）：靠近 / 远离")]
+    [SerializeField] TargetSourceType targetSourceType = TargetSourceType.ApproachNearestEnemy;
+
     [Tooltip("地图管理器；留空则取场景里的第一个")]
     public MapManager map;
 
@@ -37,16 +40,31 @@ public class AutoPilot : MonoBehaviour
     /// <summary>自己的阵营；没有 Health 就当 0</summary>
     public int Team => health != null ? health.team : 0;
 
+    /// <summary>向外暴露的移动管线类型：外部改它就会按新枚举重建阶段一</summary>
+    public TargetSourceType SourceType
+    {
+        get => targetSourceType;
+        set
+        {
+            targetSourceType = value;
+            Build();
+        }
+    }
+
     void Awake()
     {
         if (map == null) map = FindObjectOfType<MapManager>();
         if (mover == null) mover = GetComponent<ObjectMover>();
         health = GetComponent<Health>();
+        if (mover != null && mover.map == null) mover.map = map;
 
-        // 还没人装配就自己兜底（等实体类来了改由它 new 好再塞进来）
-        TargetSource ??= new ApproachNearestEnemy(map, transform, Team);
-        Planner ??= new BfsPathPlanner(map);
-        Executor ??= new MoverPathExecutor(map, mover);
+        Build();
+    }
+
+    /// <summary>按当前枚举装配三段（工厂造接口，这里只负责装上；也可以外部塞别的实现进来）</summary>
+    public void Build()
+    {
+        PathPipelineFactory.Wire(this, targetSourceType, map, transform, Team, mover);
     }
 
     /// <summary>完整管线：阶段一 -> 阶段二 -> 阶段三</summary>
