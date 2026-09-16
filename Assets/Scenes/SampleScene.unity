@@ -2381,11 +2381,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a8b16c453fdc47e191ba766d673b6c5e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  skill:
-    range: 1
-    targetCount: 1
-    cooldown: 0
-    damage: 10
+  attackType: 0
+  damage: 10
+  cooldown: 0
   map: {fileID: 1263441937}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:

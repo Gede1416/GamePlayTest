@@ -3,55 +3,74 @@ using UnityEngine;
 
 // ============ 攻击管线三段接口 ============
 // 阶段一：技能释放判断 -> 阶段二：目标获取 -> 阶段三：技能释放
-// 和移动管线一样：依赖（地图等）走构造函数注入，接口只收"这次要处理什么"（技能 / 施法者 / 目标列表）。
+// 三段都**不依赖任何技能对象**：范围、目标数、伤害这些数据由各自的实现自己带（构造函数注入），
+// 地图等外部依赖同样走构造函数注入。
 
-/// <summary>阶段一：技能释放判断——这次能不能放</summary>
+/// <summary>阶段一：技能释放判断——这次能不能放（自己判断，不看别人）</summary>
 public interface ICastCheck
 {
-    bool CanCast(Skill skill, Entity caster);
+    bool CanCast(Entity caster);
 }
 
-/// <summary>阶段二：目标获取——按技能的 攻击范围 / 目标数量 选出目标</summary>
+/// <summary>阶段二：目标获取——选出这次要打的目标</summary>
 public interface ITargetFinder
 {
-    bool TryFindTargets(Skill skill, Entity caster, List<Entity> targets);
+    bool TryFindTargets(Entity caster, List<Entity> targets);
 }
 
-/// <summary>阶段三：技能释放——把技能打到目标身上</summary>
+/// <summary>阶段三：技能释放——对目标附加效果</summary>
 public interface ISkillCaster
 {
-    bool Cast(Skill skill, Entity caster, List<Entity> targets);
+    bool Cast(Entity caster, List<Entity> targets);
+}
+
+/// <summary>带冷却的阶段一实现再实现它，Attacker 释放成功后会调 StartCooldown、每回合调 TickTurn</summary>
+public interface ICooldown
+{
+    int CooldownLeft { get; }
+    void StartCooldown();
+    void TickTurn();
 }
 
 
-// ============ 三个默认实现 ============
+// ============ 阶段一：释放判断 ============
 
-/// <summary>默认的释放判断：直接问技能自己的前置条件</summary>
-public class SkillReadyCheck : ICastCheck
+/// <summary>默认的释放判断：施法者活着 + 冷却好了（冷却自己数）</summary>
+public class CooldownCastCheck : ICastCheck, ICooldown
 {
-    public bool CanCast(Skill skill, Entity caster)
+    readonly int cooldown;
+
+    public CooldownCastCheck(int cooldown = 0)
     {
-        return skill != null && skill.CanCast(caster);
+        this.cooldown = cooldown;
+    }
+
+    public int CooldownLeft { get; private set; }
+
+    public void StartCooldown() => CooldownLeft = cooldown;
+
+    public void TickTurn()
+    {
+        if (CooldownLeft > 0) CooldownLeft--;
+    }
+
+    public bool CanCast(Entity caster)
+    {
+        if (caster == null || caster.Health == null || caster.Health.IsDead) return false;
+        return CooldownLeft <= 0;
     }
 }
 
-/// <summary>
-/// 默认的目标获取：以施法者所在格子为圆心，在技能的攻击范围内找非己方单位，
-/// 按曼哈顿距离由近到远取前 targetCount 个。
-/// </summary>
-public class RangeTargetFinder : ITargetFinder
+
+// ============ 阶段二：目标获取 ============
+
+/// <summary>两个目标获取共用的挑选逻辑：范围内按曼哈顿距离由近到远取前 targetCount 个非己方</summary>
+public static class TargetPicker
 {
-    readonly MapManager map;
-
-    public RangeTargetFinder(MapManager map)
-    {
-        this.map = map;
-    }
-
-    public bool TryFindTargets(Skill skill, Entity caster, List<Entity> targets)
+    public static bool Pick(MapManager map, Entity caster, int range, int targetCount, List<Entity> targets)
     {
         targets.Clear();
-        if (map == null || skill == null || caster == null || skill.targetCount <= 0) return false;
+        if (map == null || caster == null || targetCount <= 0) return false;
 
         var self = map.WorldToCell(caster.transform.position);
 
@@ -63,36 +82,89 @@ public class RangeTargetFinder : ITargetFinder
             var health = go.GetComponent<Health>();
             if (health == null || health.team == caster.Team || health.IsDead) continue;   // 只认非己方且活着的
 
-            if (MapManager.Manhattan(self, map.WorldToCell(go.transform.position)) > skill.range) continue;   // 攻击范围外
-
             var entity = go.GetComponent<Entity>();
-            if (entity != null) targets.Add(entity);
+            if (entity == null) continue;
+
+            int d = MapManager.Manhattan(self, map.WorldToCell(go.transform.position));
+            if (d > range) continue;                                                       // 攻击范围外
+
+            targets.Add(entity);
         }
 
         if (targets.Count == 0) return false;
 
-        targets.Sort((a, b) => Dist(self, a).CompareTo(Dist(self, b)));              // 近的优先
-        if (targets.Count > skill.targetCount)
-            targets.RemoveRange(skill.targetCount, targets.Count - skill.targetCount);   // 目标数量上限
+        targets.Sort((a, b) => Dist(map, self, a).CompareTo(Dist(map, self, b)));          // 近的优先
+        if (targets.Count > targetCount)
+            targets.RemoveRange(targetCount, targets.Count - targetCount);                 // 目标数量上限
 
         return true;
     }
 
-    int Dist(Vector2Int from, Entity e)
+    static int Dist(MapManager map, Vector2Int from, Entity e)
     {
         return MapManager.Manhattan(from, map.WorldToCell(e.transform.position));
     }
 }
 
-/// <summary>默认的技能释放：调技能自己的 Cast 附加效果，然后进冷却</summary>
-public class DefaultSkillCaster : ISkillCaster
+/// <summary>近战目标获取：攻击范围 1 格、1 个目标</summary>
+public class MeleeTargetFinder : ITargetFinder
 {
-    public bool Cast(Skill skill, Entity caster, List<Entity> targets)
-    {
-        if (skill == null || caster == null || targets == null || targets.Count == 0) return false;
+    public const int Range = 1;
+    public const int TargetCount = 1;
 
-        skill.Cast(caster, targets);     // 对目标附加效果（子类实现）
-        skill.StartCooldown();
+    readonly MapManager map;
+
+    public MeleeTargetFinder(MapManager map)
+    {
+        this.map = map;
+    }
+
+    public bool TryFindTargets(Entity caster, List<Entity> targets)
+    {
+        return TargetPicker.Pick(map, caster, Range, TargetCount, targets);
+    }
+}
+
+/// <summary>远程目标获取：攻击范围 3 格、1 个目标</summary>
+public class RangedTargetFinder : ITargetFinder
+{
+    public const int Range = 3;
+    public const int TargetCount = 1;
+
+    readonly MapManager map;
+
+    public RangedTargetFinder(MapManager map)
+    {
+        this.map = map;
+    }
+
+    public bool TryFindTargets(Entity caster, List<Entity> targets)
+    {
+        return TargetPicker.Pick(map, caster, Range, TargetCount, targets);
+    }
+}
+
+
+// ============ 阶段三：技能释放 ============
+
+/// <summary>默认的技能释放：对每个目标扣 damage 血（伤害自己带）</summary>
+public class DamageCaster : ISkillCaster
+{
+    public float damage;
+
+    public DamageCaster(float damage = 10f)
+    {
+        this.damage = damage;
+    }
+
+    public bool Cast(Entity caster, List<Entity> targets)
+    {
+        if (caster == null || targets == null || targets.Count == 0) return false;
+
+        foreach (var t in targets)
+            if (t != null && t.Health != null) t.Health.TakeDamage(damage);
+
+        Debug.Log($"[DamageCaster] {caster.name} 命中 {targets.Count} 个目标，每个 {damage} 伤害");
         return true;
     }
 }
