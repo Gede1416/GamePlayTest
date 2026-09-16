@@ -66,11 +66,11 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 - `SkillManager`：无冷却、无前摇、无打断（`Show` 在释放中直接忽略输入）
 - `MapManager`：占用数据只按 `entities` 列表重建（不在列表里的实体会走但不会被记录占用）；`entities` 被搬动/销毁后要自己调 `SyncOccupied()` 对齐；无地形/障碍数据、无寻路
 - `AutoPilot`：管线只在被调用时跑一次（不会周期性重算/自动追人）、路径算完不重算（中途被挡就放弃）、BFS 的目标格必须可进入（站着人的格子不能当终点）；三段装配以 `Entity.Wire()` 为准，`AutoPilot.Awake` 里的 `??=` 只是没挂 Entity 时的兜底
-- `TargetSources`：每次调用都 `FindObjectsOfType<Health>()` 并按曼哈顿距离挑最近（没有单位注册表/分帧）；"靠近"落地成"站到敌人四周离自己最近的空格"（敌人那格进不去，**不按步数裁剪**——目标在预算外就这回合走一段、下回合接着走），曼哈顿距离 ≤ 1 视为已贴身、这次不产生目标；"远离"只在本回合步数可达的菱形里挑最远格（地图没有障碍时等价于可达，以后有地形要换成按步数上限做 BFS 洪泛）
+- `TargetSources`：目标从 `MapManager.entities`（地图就是单位注册表）里找、按曼哈顿距离挑最近——**不在 map 实体列表里的单位不会被当成目标**；"靠近"落地成"站到敌人四周离自己最近的空格"（敌人那格进不去，**不按步数裁剪**——目标在预算外就这回合走一段、下回合接着走），曼哈顿距离 ≤ 1 视为已贴身、这次不产生目标；"远离"只在本回合步数可达的菱形里挑最远格（地图没有障碍时等价于可达，以后有地形要换成按步数上限做 BFS 洪泛）
 - `Health.team`：阵营就是个 int，没有仇恨表/友军保护
 - `TurnManager`：行动内容写死成 `Entity.TakeTurn()`（跑一次寻路管线，没抽成可替换的行动接口）、没有回合开始/结束事件（只能轮询 `IsFinished`）、先攻相同时按列表顺序而不掷骰、没有"跳过/延后/守卫"这类规则
 - `Entity` / `PathPipelineFactory`：先攻只有 `Entity.speed` 一份（`TurnManager` 的排序和行动都走 Entity）；`Entity.Wire()` 每调一次就重建三段（正常只在 `Awake` 调一次，运行中重复调不会打断正在走的协程）
-- `Attacker` / `Skill`：攻击管线**没有接进回合循环**（要放技能得自己调 `Attacker.RunPipeline()`，冷却要每回合调一次 `TickTurn()`）；目标获取只认"挂了 `Entity` 且有 `Health`"的单位、每次 `FindObjectsOfType`、按曼哈顿距离排序；`Skill.Cast` 默认只扣血（没有击退/buff/动画表现）；技能列表与碰触体那套 `SkillManager` + `Attack` 是两套并行机制
+- `Attacker` / `Skill`：攻击管线**没有接进回合循环**（要放技能得自己调 `Attacker.RunPipeline()`，冷却要每回合调一次 `TickTurn()`）；目标获取从 `MapManager.entities` 里找，只认"挂了 `Entity` 且有 `Health`"的单位、按曼哈顿距离排序；`Skill.Cast` 默认只扣血（没有击退/buff/动画表现）；技能列表与碰触体那套 `SkillManager` + `Attack` 是两套并行机制
 - `NavTest`：纯测试组件——按钮文字用英文（内置字体没有中文字形）、不管连点/换目标、依赖 Inspector 里接好 map / anchor / pilot
 - 场景里还没有任何预制体，脚本都还没在播放模式下跑过（两个角色都没有 Rigidbody，移动是直接写 `transform.position`）
 

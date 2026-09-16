@@ -55,14 +55,17 @@ public class RangeTargetFinder : ITargetFinder
 
         var self = map.WorldToCell(caster.transform.position);
 
-        // ponytail: 每次调用 FindObjectsOfType + 全表排序；单位多了要换注册表/分帧
-        foreach (var h in Object.FindObjectsOfType<Health>())
+        // 单位从地图的实体列表里找（map 就是单位注册表），不扫全场景
+        foreach (var go in map.entities)
         {
-            if (h.team == caster.Team) continue;                                     // 己方（含自己）跳过
-            if (h.IsDead) continue;
-            if (MapManager.Manhattan(self, map.WorldToCell(h.transform.position)) > skill.range) continue;   // 攻击范围外
+            if (go == null) continue;
 
-            var entity = h.GetComponent<Entity>();
+            var health = go.GetComponent<Health>();
+            if (health == null || health.team == caster.Team || health.IsDead) continue;   // 只认非己方且活着的
+
+            if (MapManager.Manhattan(self, map.WorldToCell(go.transform.position)) > skill.range) continue;   // 攻击范围外
+
+            var entity = go.GetComponent<Entity>();
             if (entity != null) targets.Add(entity);
         }
 

@@ -28,11 +28,14 @@ public class ApproachNearestEnemy : ITargetSource
         var selfCell = map.WorldToCell(self.position);
         int nearest = int.MaxValue;
 
-        // ponytail: 每次调用都 FindObjectsOfType + 只按距离挑；单位多了（>几十个）再换成注册表 + 分帧
-        foreach (var h in Object.FindObjectsOfType<Health>())
+        // 敌人从地图的实体列表里找（map 就是单位注册表）
+        foreach (var go in map.entities)
         {
-            if (h.team == team) continue;                                       // 己方（含自己）跳过
-            var enemy = map.WorldToCell(h.transform.position);
+            if (go == null) continue;
+
+            var h = go.GetComponent<Health>();
+            if (h == null || h.team == team) continue;                          // 己方（含自己）跳过
+            var enemy = map.WorldToCell(go.transform.position);
             int d = MapManager.Manhattan(selfCell, enemy);
             if (d >= nearest) continue;                                         // 没有更近
             if (d <= 1) return false;                                           // 最近的敌人已经贴着了，不用动
@@ -85,7 +88,7 @@ public class FleeNearestEnemy : ITargetSource
         this.mover = mover;
     }
 
-    // ponytail: 每次调用全图扫一遍、每次都 FindObjectsOfType；10×10 网格无所谓，格子大了要改成缓存。
+    // ponytail: 每次调用全图扫一遍找候选格；10×10 网格无所谓，格子大了要改成缓存。
     //           候选格用"曼哈顿距离 <= 剩余步数"的菱形筛（地图现在没有障碍数据，这样等价于可达）；
     //           以后有墙/地形了要换成按步数上限做 BFS 洪泛。
     public bool TryGetTarget(out Vector2Int cell)
@@ -102,10 +105,15 @@ public class FleeNearestEnemy : ITargetSource
         int nearest = int.MaxValue;
         var enemy = selfCell;
 
-        foreach (var h in Object.FindObjectsOfType<Health>())
+        // 敌人从地图的实体列表里找（map 就是单位注册表）
+        foreach (var go in map.entities)
         {
-            if (h.team == team) continue;
-            var e = map.WorldToCell(h.transform.position);
+            if (go == null) continue;
+
+            var h = go.GetComponent<Health>();
+            if (h == null || h.team == team) continue;
+
+            var e = map.WorldToCell(go.transform.position);
             int d = MapManager.Manhattan(selfCell, e);
             if (d < nearest)
             {
