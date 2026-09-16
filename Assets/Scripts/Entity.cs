@@ -45,13 +45,28 @@ public class Entity : MonoBehaviour
 
     void Awake()
     {
-        Mover = GetComponent<ObjectMover>();
-        Pilot = GetComponent<AutoPilot>();
-        Health = GetComponent<Health>();
-        if (map == null) map = FindObjectOfType<MapManager>();
+        CacheComponents();
+
+        // 地图由初始化管理器注入（见 Setup）；这里只在自己已经拿到地图时才装配
+        if (map != null) Setup(map);
+    }
+
+    /// <summary>由初始化管理器装配：注入地图、建管线、写步数（重复调用无害）</summary>
+    public void Setup(MapManager runtimeMap)
+    {
+        CacheComponents();
+        map = runtimeMap;
+        if (Mover != null) Mover.map = runtimeMap;
 
         Wire();
         ApplySteps();
+    }
+
+    void CacheComponents()
+    {
+        if (Mover == null) Mover = GetComponent<ObjectMover>();
+        if (Pilot == null) Pilot = GetComponent<AutoPilot>();
+        if (Health == null) Health = GetComponent<Health>();
     }
 
     /// <summary>把每回合步数上限写给移动组件，并把剩余步数补满（改 moveSteps 后调它）</summary>
