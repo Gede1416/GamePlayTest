@@ -12,10 +12,10 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 
 ## 脚本清单
 
-- `Assets/Scripts/`：`Entity`（实体）、`NavTest`（测试用）
+- `Assets/Scripts/`：`Entity`（实体）、`Skill`（技能类，普通类）、`NavTest`（测试用）
 - `Assets/Scripts/Managers/`：管理器（`MapManager` / `TurnManager` / `SkillManager`）
 - `Assets/Scripts/Components/`：功能组件（`Health` / `ObjectMover` / `Attack`）
-- `Assets/Scripts/Pipeline/`：管线（`AutoPilot` / `PathPipeline` / `TargetSources` / `PathPipelineFactory`）
+- `Assets/Scripts/Pipeline/`：管线（移动管线：`AutoPilot` / `PathPipeline` / `TargetSources` / `PathPipelineFactory`；攻击管线：`Attacker` / `AttackPipeline`）
 - `Assets/Editor/`：编辑器工具（`SceneAutoReload`）
 
 | 文件 | 职责 | 对外接口 |
@@ -32,11 +32,14 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 | `Managers/TurnManager.cs` | 回合管理：每回合按 `Entity.speed` 让每个角色行动一次，跑满 `totalRounds` 就结束；角色"行动" = `Entity.TakeTurn()` 并等 `Pilot.IsFollowing` 走完 | `List<Entity> actors`、`int totalRounds`、`float turnDelay`、`bool autoStart`、`void StartBattle()`、`void StopBattle()`、`List<Entity> Order()`、`int CurrentRound`、`Entity CurrentActor`、`bool IsFinished` |
 | `Entity.cs` | 实体：一个角色身上组件的统一入口（`[RequireComponent]` ObjectMover + AutoPilot），`Awake` 里用工厂按枚举装配管线三段 + 写步数上限；`SourceType` 改枚举即重建阶段一 | `AutoPilot Pilot`、`ObjectMover Mover`、`Health Health`、`int Team`、`int speed`（先攻）、`int moveSteps`（每回合步数上限，0=不限）、`TargetSourceType SourceType { get; set; }`、`void Wire()`、`void ApplySteps()`、`bool TakeTurn()` |
 | `Pipeline/PathPipelineFactory.cs` | `TargetSourceType` 枚举（ApproachNearestEnemy / FleeNearestEnemy）+ 静态工厂：按枚举造阶段一、统一造阶段二/三 | `CreateSource(type, map, self, team, mover)`、`CreatePlanner(map)`、`CreateExecutor(map, mover)`、`Wire(pilot, type, map, self, team, mover)` |
+| `Skill.cs` | 技能（**普通类**，`[System.Serializable]`，Inspector 里可配）：技能释放前置条件 `CanCast(caster)`（虚方法）+ 目标获取参数 `range`/`targetCount` + 对目标附加效果 `Cast(caster, targets)`（虚方法）+ 冷却 | `bool CanCast(Entity)`、`void Cast(Entity, List<Entity>)`、`void StartCooldown()`、`void TickTurn()`、`int range`、`int targetCount`、`int cooldown`、`float damage`、`int CooldownLeft` |
+| `Pipeline/AttackPipeline.cs` | 攻击管线三段接口 + 三个默认实现：`SkillReadyCheck`（问技能自己）、`RangeTargetFinder(map)`（范围内按曼哈顿距离取前 N 个非己方）、`DefaultSkillCaster`（调 `Skill.Cast` 并进冷却） | `ICastCheck.CanCast(skill, caster)`、`ITargetFinder.TryFindTargets(skill, caster, targets)`、`ISkillCaster.Cast(skill, caster, targets)` |
+| `Pipeline/Attacker.cs` | 攻击管线编排（挂在实体上，`[RequireComponent(typeof(Entity))]`）：阶段一 → 二 → 三；`Awake` 里 `??=` 装配默认三段，属性可替换；含 `[ContextMenu]` 手动跑一次 | `Skill skill`、`ICastCheck CastCheck { get; set; }`、`ITargetFinder TargetFinder { get; set; }`、`ISkillCaster Caster { get; set; }`、`bool RunPipeline()`、`void TickTurn()`、`List<Entity> targets` |
 
 ## 场景（Assets/Scenes/SampleScene.unity）
 
 - `ground`：MapManager（cellSize 1；地面 Plane 10×10 → Cols/Rows 10；`entities` = [entity, entity (1)]，`spawnPoints` = [(1,1), (5,5)] 是**格子坐标**）
-- `entity`：Transform/MeshFilter/MeshRenderer + BoxCollider + ObjectMover（`map` 已指向 ground 的 MapManager）+ **AutoPilot** + Health(`team: 0`) + SkillManager + **Entity(先攻 10, moveSteps 4)**；4 个 skill_* 是它的子物体（Rigidbody 已被用户在编辑器里删掉）
+- `entity`：Transform/MeshFilter/MeshRenderer + BoxCollider + ObjectMover（`map` 已指向 ground 的 MapManager）+ **AutoPilot** + Health(`team: 0`) + SkillManager + **Entity(先攻 10, moveSteps 4)** + **Attacker(技能：范围 1 / 目标数 1 / 冷却 0 / 伤害 10)**；4 个 skill_* 是它的子物体（Rigidbody 已被用户在编辑器里删掉）
 - `entity (1)`：BoxCollider + Health（`team: 1`，敌方）+ **ObjectMover + AutoPilot**（`map` / `mover` 已接好）+ **Entity(先攻 10, moveSteps 3, targetSourceType = FleeNearestEnemy)** ——**按用户要求不挂攻击/技能组件**（没有 Attack、没有 SkillManager）
 - `TestCanvas`：Canvas(Overlay) + CanvasScaler + GraphicRaycaster + `NavTest`；子物体 btn_up / btn_down / btn_left / btn_right，onClick 分别指到 `NavTest.GoUp / GoDown / GoLeft / GoRight`
 - `EventSystem`：EventSystem + StandaloneInputModule（老输入系统）
@@ -51,7 +54,7 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 - 只写被要求的功能：不加接口/工厂/配置项，不加脚手架。故意砍掉的东西在回复里说明"跳过了 X，需要 Y 时再加"，不预先实现。
 - 用 `#` 对 `Vector2Int` 的格子坐标：`.x` = 列（世界 x 方向），`.y` = 行（世界 z 方向），**不是世界高度**。
 - 世界坐标用 `Vector3`，地面用 `Vector2` 存 `(x, z)`；不要用 Vector2 直接赋给 `transform.position`（会把 y/z 清 0）。
-- 管线三段（`ITargetSource` / `IPathPlanner` / `IPathExecutor`）的依赖走**构造函数注入**，接口只收"这次要处理什么"（起点/终点/路径）；不要往接口里塞 AutoPilot 或 MapManager。
+- 管线三段（移动：`ITargetSource` / `IPathPlanner` / `IPathExecutor`；攻击：`ICastCheck` / `ITargetFinder` / `ISkillCaster`）的依赖都走**构造函数注入**，接口只收"这次要处理什么"（起点/终点/路径；技能/施法者/目标列表）；不要往接口里塞 AutoPilot / MapManager / Entity。
 - `Health` 是 2D/3D 无关的，其余脚本的维度假设见上表。
 - 需要可视化的逻辑（如网格划分）用 `OnDrawGizmosSelected` 画出来核对，不写单元测试。
 
@@ -66,6 +69,7 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 - `Health.team`：阵营就是个 int，没有仇恨表/友军保护
 - `TurnManager`：行动内容写死成 `Entity.TakeTurn()`（跑一次寻路管线，没抽成可替换的行动接口）、没有回合开始/结束事件（只能轮询 `IsFinished`）、先攻相同时按列表顺序而不掷骰、没有"跳过/延后/守卫"这类规则
 - `Entity` / `PathPipelineFactory`：先攻只有 `Entity.speed` 一份（`TurnManager` 的排序和行动都走 Entity）；`Entity.Wire()` 每调一次就重建三段（正常只在 `Awake` 调一次，运行中重复调不会打断正在走的协程）
+- `Attacker` / `Skill`：攻击管线**没有接进回合循环**（要放技能得自己调 `Attacker.RunPipeline()`，冷却要每回合调一次 `TickTurn()`）；目标获取只认"挂了 `Entity` 且有 `Health`"的单位、每次 `FindObjectsOfType`、按曼哈顿距离排序；`Skill.Cast` 默认只扣血（没有击退/buff/动画表现）；技能列表与碰触体那套 `SkillManager` + `Attack` 是两套并行机制
 - `NavTest`：纯测试组件——按钮文字用英文（内置字体没有中文字形）、不管连点/换目标、依赖 Inspector 里接好 map / anchor / pilot
 - 场景里还没有任何预制体，脚本都还没在播放模式下跑过（两个角色都没有 Rigidbody，移动是直接写 `transform.position`）
 
