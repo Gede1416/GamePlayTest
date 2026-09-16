@@ -46,6 +46,8 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 - `EventSystem`：EventSystem + StandaloneInputModule（老输入系统）
 - `TurnManager`：只有 TurnManager 组件（没有渲染物），`actors` = [entity 上的 Entity, entity (1) 上的 Entity]，先攻在各自 `Entity.speed` 上（现在都是 10 → 相同则按列表顺序，entity 先动），`totalRounds` 5、`autoStart` 开 → 播放就自动跑 5 回合
 - 场景检查：`python _validate_scene.py`（查 fileID 引用、组件归属、父子关系、SceneRoots、缩进）；手改场景前的备份在 `SampleScene.unity.bak`
+- 预制体：`Assets/prefab/Entity.prefab`（实体，来自场景 `entity`）、`Map.prefab`（地图，来自 `ground`）、`TurnController.prefab`（回合控制器，来自 `TurnManager`）——由编辑器工具 `Assets/Editor/BattlePrefabExporter.cs` 生成（首次加载自动跑一次，菜单 `Tools/导出战斗对象预制体` 可重跑）。
+  注意：跨对象的**场景**引用（`MapManager` 组件、`MapManager.entities`、`TurnManager.actors` 等）Unity 不允许写进预制体，生成时会被置空；运行时靠组件 `Awake` 里的 `FindObjectOfType<MapManager>()` 找回来，`actors` / `entities` 这类列表要在场景里的实例上重新接。
 - 编辑器工具 `Assets/Editor/SceneAutoReload.cs`：磁盘上的 `.unity` 一变就自动重新加载当前场景（内存里未保存的版本先另存到 `Temp/编辑器未保存版本_*.unity`）；菜单 `Tools/场景以磁盘为准` 开关（默认开）、`Tools/重新加载当前场景（以磁盘为准）` 手动触发；播放中不动场景
 - 注意：按钮目标 = 参照物四周最近的可进入格子；spawnPoints 现在是 [(1,1), (5,5)]，`entity (1)` 不再贴角落，四个方向都能走
 
@@ -71,6 +73,7 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 - `TurnManager`：行动内容写死成 `Entity.TakeTurn()`（跑一次寻路管线，没抽成可替换的行动接口）、没有回合开始/结束事件（只能轮询 `IsFinished`）、先攻相同时按列表顺序而不掷骰、没有"跳过/延后/守卫"这类规则
 - `Entity` / `PathPipelineFactory`：先攻只有 `Entity.speed` 一份（`TurnManager` 的排序和行动都走 Entity）；`Entity.Wire()` 每调一次就重建三段（正常只在 `Awake` 调一次，运行中重复调不会打断正在走的协程）
 - `Attacker` / `Skill`：攻击管线**没有接进回合循环**（要放技能得自己调 `Attacker.RunPipeline()`，冷却要每回合调一次 `TickTurn()`）；目标获取从 `MapManager.entities` 里找，只认"挂了 `Entity` 且有 `Health`"的单位、按曼哈顿距离排序；`Skill.Cast` 默认只扣血（没有击退/buff/动画表现）；技能列表与碰触体那套 `SkillManager` + `Attack` 是两套并行机制
+- 预制体：`Assets/prefab/*.prefab` 只是对象模板，跨对象引用会被 Unity 置空（见「场景」一节）；场景里目前用的还是原来那几个物体，没有换成预制体实例（要换成实例就用 `SaveAsPrefabAssetAndConnect`）
 - `NavTest`：纯测试组件——按钮文字用英文（内置字体没有中文字形）、不管连点/换目标、依赖 Inspector 里接好 map / anchor / pilot
 - 场景里还没有任何预制体，脚本都还没在播放模式下跑过（两个角色都没有 Rigidbody，移动是直接写 `transform.position`）
 
