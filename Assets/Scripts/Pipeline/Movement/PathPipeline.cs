@@ -26,9 +26,9 @@ public interface IPathExecutor
 }
 
 
-// ============ 阶段二：BFS 寻路 ============
+// ============ 阶段二：寻路 ============
 
-/// <summary>BFS（四方向、每格等权）：界外和被占用的格子都不通。</summary>
+/// <summary>寻路交给地图：BFS 实现在 MapManager.FindPath（界外和被占用的格子都不通）。</summary>
 public class BfsPathPlanner : IPathPlanner
 {
     readonly MapManager map;
@@ -38,40 +38,10 @@ public class BfsPathPlanner : IPathPlanner
         this.map = map;
     }
 
-    static readonly Vector2Int[] Dirs = { Vector2Int.right, Vector2Int.left, Vector2Int.up, Vector2Int.down };
-
     public bool TryBuild(Vector2Int start, Vector2Int goal, List<Vector2Int> path)
     {
-        path.Clear();
-        if (map == null) return false;
-        if (start == goal) return true;              // 已经站在目标格上，空路径也算成功
-        if (!map.CanEnter(goal)) return false;       // 目标进不去（界外或被占）
-
-        var cameFrom = new Dictionary<Vector2Int, Vector2Int> { [start] = start };
-        var queue = new Queue<Vector2Int>();
-        queue.Enqueue(start);
-
-        while (queue.Count > 0)
-        {
-            var cur = queue.Dequeue();
-            foreach (var dir in Dirs)
-            {
-                var next = cur + dir;
-                if (cameFrom.ContainsKey(next) || !map.CanEnter(next)) continue;
-                cameFrom[next] = cur;
-
-                if (next != goal)
-                {
-                    queue.Enqueue(next);
-                    continue;
-                }
-
-                for (var c = goal; c != start; c = cameFrom[c]) path.Add(c);   // 回溯，反着走回起点
-                path.Reverse();
-                return true;
-            }
-        }
-        return false;                                 // 走不到
+        if (map == null) { path.Clear(); return false; }
+        return map.FindPath(start, goal, path);
     }
 }
 

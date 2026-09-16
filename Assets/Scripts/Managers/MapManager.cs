@@ -230,6 +230,83 @@ public class MapManager : MonoBehaviour
         if (id > Empty) positions[id] = from;
     }
 
+    // ---------- 寻路 ----------
+
+    static readonly Vector2Int[] Dirs = { Vector2Int.right, Vector2Int.left, Vector2Int.up, Vector2Int.down };
+
+    /// <summary>
+    /// 寻路：从 from 到 to 的最短路径（四方向、每格等权 BFS），结果写进 path（不含起点）。
+    /// from == to 时 path 清空并返回 true（已经站在目标格上）；目标进不去或走不到返回 false。
+    /// </summary>
+    public bool FindPath(Vector2Int from, Vector2Int to, List<Vector2Int> path)
+    {
+        path.Clear();
+        if (cells == null) return false;
+        if (from == to) return true;             // 已经在目标格上，空路径也算成功
+        if (!CanEnter(to)) return false;         // 目标进不去（界外或被占）
+
+        var cameFrom = new Dictionary<Vector2Int, Vector2Int> { [from] = from };
+        var queue = new Queue<Vector2Int>();
+        queue.Enqueue(from);
+
+        while (queue.Count > 0)
+        {
+            var cur = queue.Dequeue();
+            foreach (var dir in Dirs)
+            {
+                var next = cur + dir;
+                if (cameFrom.ContainsKey(next) || !CanEnter(next)) continue;
+                cameFrom[next] = cur;
+
+                if (next != to)
+                {
+                    queue.Enqueue(next);
+                    continue;
+                }
+
+                for (var c = to; c != from; c = cameFrom[c]) path.Add(c);   // 回溯，反着走回起点
+                path.Reverse();
+                return true;
+            }
+        }
+        return false;                            // 走不到
+    }
+
+    /// <summary>自检：随便挑两个空格走一遍寻路，校验路径连续、可走、终点对得上（右键组件菜单可跑）</summary>
+    [ContextMenu("自检：寻路")]
+    public void SelfCheckPath()
+    {
+        if (cells == null) { Debug.LogWarning("[MapManager] 还没 Build，没有地图数据可查"); return; }
+
+        var free = new List<Vector2Int>();
+        for (int x = 0; x < Cols; x++)
+            for (int z = 0; z < Rows; z++)
+                if (cells[x, z] == Empty) free.Add(new Vector2Int(x, z));
+
+        if (free.Count < 2) { Debug.LogWarning("[MapManager] 空格子不足两个，没得测"); return; }
+
+        var from = free[0];
+        var to = free[free.Count - 1];
+        var path = new List<Vector2Int>();
+
+        if (!FindPath(from, to, path)) { Debug.LogWarning($"[MapManager] 寻路自检：{from} -> {to} 没找到路径（地图被堵死了？）", this); return; }
+
+        var prev = from;
+        foreach (var cell in path)
+        {
+            if (!CanEnter(cell) || Manhattan(prev, cell) != 1)
+            {
+                Debug.LogError($"[MapManager] 寻路自检不通过：{prev} -> {cell} 不是相邻的可走格", this);
+                return;
+            }
+            prev = cell;
+        }
+
+        Debug.Log(prev == to
+            ? $"[MapManager] 寻路自检通过：{from} -> {to}，{path.Count} 步"
+            : $"[MapManager] 寻路自检不通过：终点是 {prev}，应该是 {to}", this);
+    }
+
     /// <summary>自检：二维图与 uuid→位置/实体 两份索引是否一致（右键组件菜单可跑）</summary>
     [ContextMenu("自检：地图数据一致性")]
     public void SelfCheck()
