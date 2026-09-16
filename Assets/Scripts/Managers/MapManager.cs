@@ -2,47 +2,34 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// 地图管理器（**普通类**，由 InitManager 构建；3D 俯视角，y 为高度）：
-/// 按地图 GameObject 的长宽（x / z）和单位距离划分 XZ 平面网格，管理实体初始位置与格子占用。
+/// 地图管理器（3D 俯视角，y 为高度）：
+/// 按地图 GameObject 的长宽（x / z）和指定单位距离划分 XZ 平面网格，并管理实体的初始位置。
 /// </summary>
-public class MapManager
+public class MapManager : MonoBehaviour
 {
-    /// <summary>单位距离：每个格子的边长（在 Init 之前设置）</summary>
-    public float cellSize = 1f;
-
-    /// <summary>地图物体：取其 Renderer 包围盒的 x / z 尺寸；没有 Renderer 则用它的缩放</summary>
+    [Tooltip("地图物体：取其 Renderer 包围盒的 x / z 尺寸；没有 Renderer 则用它的缩放")]
     public GameObject map;
+
+    [Tooltip("单位距离：每个格子的边长")]
+    public float cellSize = 1f;
 
     public int Cols { get; private set; }        // x 方向格子数
     public int Rows { get; private set; }        // z 方向格子数
     public Vector2 MinXZ { get; private set; }   // 网格角点在地面的坐标 (x, z)
-    public float GridY { get; private set; }     // 网格所在高度
+    public float GridY { get; private set; }     // 网格所在高度 = 地图顶面 y
 
-    /// <summary>实体列表（Init 时给）</summary>
-    public readonly List<GameObject> entities = new();
+    [Header("实体")]
+    [Tooltip("实体列表")]
+    public List<GameObject> entities = new();
 
-    /// <summary>初始位置列表（格子坐标），与 entities 一一对应</summary>
-    public readonly List<Vector2Int> spawnPoints = new();
+    [Tooltip("初始位置列表，与实体列表一一对应；直接写世界坐标，y 就是高度")]
+    public List<Vector2Int> spawnPoints = new();
 
-    /// <summary>已被占用的格子（只读，给 Gizmos 看）</summary>
-    public IEnumerable<Vector2Int> Occupied => occupied;
+    readonly HashSet<Vector2Int> occupied = new();     // 格子占用数据：只由本脚本改，外部只读
 
-    readonly HashSet<Vector2Int> occupied = new();     // 格子占用数据：只由本类改，外部只读
+    void Awake() => Build();
 
-    /// <summary>构建地图：记下实体与初始位置，划分网格，并把实体放回各自的初始位置</summary>
-    public void Init(List<GameObject> entities, List<Vector2Int> spawnPoints, GameObject map)
-    {
-        this.map = map;
-
-        this.entities.Clear();
-        if (entities != null) this.entities.AddRange(entities);
-
-        this.spawnPoints.Clear();
-        if (spawnPoints != null) this.spawnPoints.AddRange(spawnPoints);
-
-        Build();
-        ResetEntities();
-    }
+    void Start() => ResetEntities();
 
     public void Build()
     {
@@ -104,13 +91,6 @@ public class MapManager
         return Mathf.Abs(a.x - b.x) + Mathf.Abs(a.y - b.y);
     }
 
-    /// <summary>地图物体的包围盒（没有 Renderer 就用它的位置与缩放）</summary>
-    public static Bounds GetBounds(GameObject go)
-    {
-        var r = go.GetComponentInChildren<Renderer>();
-        return r != null ? r.bounds : new Bounds(go.transform.position, go.transform.lossyScale);
-    }
-
     /// <summary>
     /// 移动指令裁决：从 from 沿 step 走一格。合法（界内且落点未被占用）就把占用数据从 from 移到落点，
     /// 并用 to 返回落点格；不合法返回 false 且不动任何数据。占用数据只有这里和 CancelMove 能改。
@@ -129,5 +109,29 @@ public class MapManager
     {
         occupied.Remove(to);
         occupied.Add(from);
+    }
+
+    static Bounds GetBounds(GameObject go)
+    {
+        var r = go.GetComponentInChildren<Renderer>();
+        return r != null ? r.bounds : new Bounds(go.transform.position, go.transform.lossyScale);
+    }
+
+    // 选中物体时在 Scene 视图画出格子线，用来核对划分结果；不需要可整段删掉
+    void OnDrawGizmosSelected()
+    {
+        if (map == null || cellSize <= 0f) return;
+
+        Bounds b = GetBounds(map);
+        float y = b.max.y + 0.01f;
+        Gizmos.color = Color.green;
+        for (float x = b.min.x; x <= b.max.x + 0.001f; x += cellSize)
+            Gizmos.DrawLine(new Vector3(x, y, b.min.z), new Vector3(x, y, b.max.z));
+        for (float z = b.min.z; z <= b.max.z + 0.001f; z += cellSize)
+            Gizmos.DrawLine(new Vector3(b.min.x, y, z), new Vector3(b.max.x, y, z));
+
+        Gizmos.color = Color.red;      // 已被占用的格子（运行中才有）
+        foreach (var c in occupied)
+            Gizmos.DrawWireCube(CellToWorld(c.x, c.y), new Vector3(cellSize, 0.02f, cellSize));
     }
 }

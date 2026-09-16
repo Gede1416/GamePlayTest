@@ -39,11 +39,11 @@ public class AutoPilot : MonoBehaviour
 
     void Awake()
     {
+        if (map == null) map = FindObjectOfType<MapManager>();
         if (mover == null) mover = GetComponent<ObjectMover>();
         health = GetComponent<Health>();
 
-        // 三段默认可先建起来（这时 map 可能还是 null）；带地图的真正装配由 Entity.Setup 完成，
-        // 所以这里的 ??= 只是"没人装配过"时的兜底，不会覆盖 Entity.Setup 建好的实例。
+        // 还没人装配就自己兜底（等实体类来了改由它 new 好再塞进来）
         TargetSource ??= new ApproachNearestEnemy(map, transform, Team);
         Planner ??= new BfsPathPlanner(map);
         Executor ??= new MoverPathExecutor(map, mover);

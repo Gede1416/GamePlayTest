@@ -558,6 +558,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dd1e096b733fad7489a0e65fb6784422, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  map: {fileID: 1263441937}
   speed: 5
   moveInput: {x: 0, y: 0, z: 0}
   stepLimit: 0
@@ -607,7 +608,7 @@ GameObject:
   - component: {fileID: 1263441935}
   - component: {fileID: 1263441934}
   - component: {fileID: 1263441933}
-  - component: {fileID: 8100000000000600}
+  - component: {fileID: 1263441937}
   m_Layer: 0
   m_Name: ground
   m_TagString: Untagged
@@ -702,6 +703,26 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1263441937
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1263441932}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 20f71c2abea448243a71f2fcff376d26, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  map: {fileID: 1263441932}
+  cellSize: 1
+  entities:
+  - {fileID: 1205230666}
+  - {fileID: 1195902030}
+  spawnPoints:
+  - {x: 1, y: 1}
+  - {x: 5, y: 5}
 --- !u!1 &1272324080
 GameObject:
   m_ObjectHideFlags: 0
@@ -1300,6 +1321,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6c1f0a4b7d9e4f3a8b2c5d6e7f8091a2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  map: {fileID: 1263441937}
   anchor: {fileID: 1195902037}
   pilot: {fileID: 8100000000000200}
   manualTarget: {x: 5, y: 5}
@@ -2231,7 +2253,58 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0927076b365a3c3489aac9246d43e097, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  map: {fileID: 1263441937}
   mover: {fileID: 1205230672}
+--- !u!1 &8100000000000300
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8100000000000301}
+  - component: {fileID: 8100000000000302}
+  m_Layer: 0
+  m_Name: TurnManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8100000000000301
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8100000000000300}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &8100000000000302
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8100000000000300}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c755d119d1ca4376a7fe0247f2177697, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  actors:
+  - {fileID: 8100000000000500}
+  - {fileID: 8100000000000501}
+  totalRounds: 5
+  turnDelay: 0.2
+  autoStart: 1
 --- !u!114 &8100000000000400
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2244,6 +2317,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dd1e096b733fad7489a0e65fb6784422, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  map: {fileID: 1263441937}
   speed: 5
   moveInput: {x: 0, y: 0, z: 0}
   stepLimit: 0
@@ -2260,6 +2334,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0927076b365a3c3489aac9246d43e097, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  map: {fileID: 1263441937}
   mover: {fileID: 8100000000000400}
 --- !u!114 &8100000000000500
 MonoBehaviour:
@@ -2273,6 +2348,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 261e2f3423a142e887bea55152ffa5c3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  map: {fileID: 1263441937}
   speed: 10
   moveSteps: 4
   targetSourceType: 0
@@ -2288,35 +2364,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 261e2f3423a142e887bea55152ffa5c3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  map: {fileID: 1263441937}
   speed: 10
   moveSteps: 3
   targetSourceType: 1
---- !u!114 &8100000000000600
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1263441932}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0559322931004650864d3e9ed0436312, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  map: {fileID: 1263441932}
-  entities:
-  - {fileID: 1205230666}
-  - {fileID: 1195902030}
-  spawnPoints:
-  - {x: 1, y: 1}
-  - {x: 5, y: 5}
-  cellSize: 1
-  actors:
-  - {fileID: 8100000000000500}
-  - {fileID: 8100000000000501}
-  totalRounds: 5
-  turnDelay: 0.2
-  autoStart: 1
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -2328,3 +2379,4 @@ SceneRoots:
   - {fileID: 1263441936}
   - {fileID: 8100000000000002}
   - {fileID: 8100000000000011}
+  - {fileID: 8100000000000301}

@@ -38,7 +38,8 @@ public class ObjectMover : MonoBehaviour
 
     void Awake()
     {
-        // map 由初始化管理器 / Entity 注入（MapManager 已是普通类，找不到也要不到）
+        if (map == null) map = FindObjectOfType<MapManager>();
+        if (map == null) Debug.LogWarning($"{name}: 没找到 MapManager，移动不会生效", this);
         if (stepLimit > 0 && stepsLeft <= 0) ResetSteps();   // 没挂 Entity 时自己补一次，免得一上来就不能走
     }
 
