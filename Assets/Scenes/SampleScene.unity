@@ -561,6 +561,8 @@ MonoBehaviour:
   map: {fileID: 1263441937}
   speed: 5
   moveInput: {x: 0, y: 0, z: 0}
+  stepLimit: 0
+  stepsLeft: 0
 --- !u!114 &1205230673
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2318,6 +2320,8 @@ MonoBehaviour:
   map: {fileID: 1263441937}
   speed: 5
   moveInput: {x: 0, y: 0, z: 0}
+  stepLimit: 0
+  stepsLeft: 0
 --- !u!114 &8100000000000401
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2346,8 +2350,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   map: {fileID: 1263441937}
   speed: 10
+  moveSteps: 4
   targetSourceType: 0
-  moveSteps: 3
 --- !u!114 &8100000000000501
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2362,8 +2366,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   map: {fileID: 1263441937}
   speed: 10
-  targetSourceType: 1
   moveSteps: 3
+  targetSourceType: 1
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
