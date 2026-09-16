@@ -39,7 +39,7 @@ public class Entity : MonoBehaviour
         set
         {
             targetSourceType = value;
-            if (Pilot != null) Pilot.TargetSource = PathPipelineFactory.CreateSource(value, map, transform, Team);
+            if (Pilot != null) Pilot.TargetSource = PathPipelineFactory.CreateSource(value, map, transform, Team, Mover);
         }
     }
 

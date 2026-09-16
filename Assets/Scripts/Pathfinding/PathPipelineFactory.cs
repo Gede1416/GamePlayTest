@@ -16,13 +16,13 @@ public enum TargetSourceType
 /// </summary>
 public static class PathPipelineFactory
 {
-    /// <summary>阶段一：获得目标点</summary>
-    public static ITargetSource CreateSource(TargetSourceType type, MapManager map, Transform self, int team)
+    /// <summary>阶段一：获得目标点（mover 是给"远离"读本回合步数用的）</summary>
+    public static ITargetSource CreateSource(TargetSourceType type, MapManager map, Transform self, int team, ObjectMover mover)
     {
         switch (type)
         {
             case TargetSourceType.FleeNearestEnemy:
-                return new FleeNearestEnemy(map, self, team);
+                return new FleeNearestEnemy(map, self, team, mover);
             default:
                 return new ApproachNearestEnemy(map, self, team);
         }
@@ -45,7 +45,7 @@ public static class PathPipelineFactory
     {
         if (pilot == null) return;
 
-        pilot.TargetSource = CreateSource(type, map, self, team);
+        pilot.TargetSource = CreateSource(type, map, self, team, mover);
         pilot.Planner = CreatePlanner(map);
         pilot.Executor = CreateExecutor(map, mover);
     }

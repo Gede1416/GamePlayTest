@@ -67,28 +67,38 @@ public class ApproachNearestEnemy : ITargetSource
 }
 
 
-/// <summary>远离：全图找"离最近的非己方单位最远、自己能站、走起来又最省"的格子。</summary>
+/// <summary>远离：在"本回合走得到的格子"里，挑离最近的非己方单位最远的那个当落点。</summary>
 public class FleeNearestEnemy : ITargetSource
 {
     readonly MapManager map;
     readonly Transform self;
     readonly int team;
+    readonly ObjectMover mover;      // 用来读本回合还剩几格可走
 
     /// <param name="team">自己的阵营（构造时取一次；阵营会变就重新构造一个）</param>
-    public FleeNearestEnemy(MapManager map, Transform self, int team)
+    /// <param name="mover">移动组件：本回合的可走步数就是它当前的 stepsLeft（stepLimit 为 0 时视为不限）</param>
+    public FleeNearestEnemy(MapManager map, Transform self, int team, ObjectMover mover)
     {
         this.map = map;
         this.self = self;
         this.team = team;
+        this.mover = mover;
     }
 
-    // ponytail: 每次调用全图扫一遍、每次都 FindObjectsOfType；10×10 网格无所谓，格子大了要改成缓存
+    // ponytail: 每次调用全图扫一遍、每次都 FindObjectsOfType；10×10 网格无所谓，格子大了要改成缓存。
+    //           候选格用"曼哈顿距离 <= 剩余步数"的菱形筛（地图现在没有障碍数据，这样等价于可达）；
+    //           以后有墙/地形了要换成按步数上限做 BFS 洪泛。
     public bool TryGetTarget(out Vector2Int cell)
     {
         cell = default;
         if (map == null || self == null) return false;
 
         var selfCell = map.WorldToCell(self.position);
+
+        // 这回合还能走几格；不限步数时当成无穷大（退化成原来的全图找最远）
+        int budget = mover != null && mover.stepLimit > 0 ? mover.stepsLeft : int.MaxValue;
+        if (budget <= 0) return false;                      // 步数用完了，这回合不动
+
         int nearest = int.MaxValue;
         var enemy = selfCell;
 
@@ -112,10 +122,12 @@ public class FleeNearestEnemy : ITargetSource
             for (int y = 0; y < map.Rows; y++)
             {
                 var c = new Vector2Int(x, y);
-                if (!map.CanEnter(c)) continue;
+                if (!map.CanEnter(c)) continue;             // 界外 / 被占
+
+                int travel = MapManager.Manhattan(selfCell, c);
+                if (travel == 0 || travel > budget) continue;   // 这回合走不到（原地也不算）
 
                 int away = MapManager.Manhattan(c, enemy);
-                int travel = MapManager.Manhattan(c, selfCell);
                 if (away > bestAway || (away == bestAway && travel < bestTravel))
                 {
                     bestAway = away;
