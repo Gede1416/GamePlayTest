@@ -62,7 +62,7 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 
 ## 已知缺口（用户明确跳过的）
 
-- `ObjectMover`：格子移动是四方向直线插值——无斜向、无转向、无寻路绕障碍；`TryMove` 通过时起点的占用就放开了，所以动画中起点是空的（要"动画中两侧都占住"就加个 `Arrive(from)`，到达时再放开起点）；步数上限（`stepLimit`）对所有移动指令都生效（`Move()` 是唯一入口），一格算一步，`Entity.TakeTurn()` 时补满，回合外调 `MoveTo` 也吃这个限制
+- `ObjectMover`：格子移动是四方向直线插值——无斜向、无转向、无寻路绕障碍；`TryMove` 通过时起点的占用就放开了，所以动画中起点是空的（要"动画中两侧都占住"就加个 `Arrive(from)`，到达时再放开起点）；步数上限（`stepLimit`）对所有移动指令都生效（`Move()` 是唯一入口），一格算一步，`Entity.TakeTurnRoutine()` 开始时补满，回合外调 `MoveTo` 也吃这个限制
 - `Attack`：无攻击冷却、无阵营/友伤过滤、无挥砍窗口（靠启用/禁用 Collider 触发 enter）
 - `SkillManager`：无冷却、无前摇、无打断（`Show` 在释放中直接忽略输入）
 - `MapManager`：占用数据只按 `entities` 列表重建（不在列表里的实体会走但不会被记录占用）；`entities` 被搬动/销毁后要自己调 `SyncOccupied()` 对齐；无地形/障碍数据、无寻路

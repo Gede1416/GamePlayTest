@@ -5,7 +5,7 @@ using UnityEngine;
 
 /// <summary>
 /// 回合管理器：每回合按先攻（Entity.speed 大的先动）依次让每个角色行动一次，跑满给定的回合数就结束。
-/// 角色的"行动" = 调 Entity.TakeTurn() 跑一次寻路管线，并等它走完再轮下一个。
+/// 角色的"行动" = yield return Entity.TakeTurnRoutine()（实体自己决定做什么，现在是 攻击-移动-攻击）。
 /// </summary>
 public class TurnManager : MonoBehaviour
 {
