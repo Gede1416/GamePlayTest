@@ -172,5 +172,5 @@ public class EntityInitData
     public TargetSourceType moveSource = TargetSourceType.ApproachNearestEnemy;
 
     [Tooltip("攻击管线类型：近战 / 远程")]
-    public Attacker.AttackType attackType = Attacker.AttackType.Melee;
+    public AttackType attackType = AttackType.Melee;
 }

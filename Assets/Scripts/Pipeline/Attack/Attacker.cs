@@ -3,21 +3,12 @@ using UnityEngine;
 
 /// <summary>
 /// 攻击管线（挂在实体上）：阶段一 技能释放判断 -> 阶段二 目标获取 -> 阶段三 技能释放。
-/// 三段各自独立（不依赖技能对象），本组件只负责按攻击类型装配它们并驱动流程。
+/// 三段各自独立（不依赖技能对象），装配交给 AttackPipelineFactory（按 AttackType 枚举造），
+/// 本组件只负责驱动流程。
 /// </summary>
 [RequireComponent(typeof(Entity))]
 public class Attacker : MonoBehaviour
 {
-    /// <summary>近战：范围 1；远程：范围 3；都是 1 个目标</summary>
-    public enum AttackType
-    {
-        /// <summary>近战，攻击范围 1 格、1 个目标</summary>
-        Melee = 0,
-
-        /// <summary>远程，攻击范围 3 格、1 个目标</summary>
-        Ranged = 1,
-    }
-
     [Tooltip("攻击类型：近战 范围 1 / 远程 范围 3，都是 1 个目标")]
     [SerializeField] AttackType attackType = AttackType.Melee;
 
@@ -63,12 +54,10 @@ public class Attacker : MonoBehaviour
         Build();
     }
 
-    /// <summary>按攻击类型装配三段（近战/远程各用各的目标获取；也可以外部塞别的实现进来）</summary>
+    /// <summary>按当前攻击类型装配三段（工厂造接口，这里只负责装上；也可以外部塞别的实现进来）</summary>
     public void Build()
     {
-        CastCheck = new CooldownCastCheck(cooldown);
-        TargetFinder = attackType == AttackType.Ranged ? (ITargetFinder)new RangedTargetFinder(map) : new MeleeTargetFinder(map);
-        Caster = new DamageCaster(damage);
+        AttackPipelineFactory.Wire(this, attackType, map, cooldown, damage);
     }
 
     /// <summary>攻击管线：技能释放判断 -> 目标获取 -> 技能释放</summary>

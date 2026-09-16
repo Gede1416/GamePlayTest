@@ -16,7 +16,7 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 - `Assets/Scripts/Managers/`：管理器（`MapManager` / `TurnManager`）
 - `Assets/Scripts/Components/`：功能组件（`Health` / `ObjectMover`）
 - `Assets/Scripts/Pipeline/Movement/`：移动管线（`AutoPilot` / `PathPipeline` / `TargetSources` / `PathPipelineFactory`）
-- `Assets/Scripts/Pipeline/Attack/`：攻击管线（`Attacker` / `AttackPipeline`）
+- `Assets/Scripts/Pipeline/Attack/`：攻击管线（`Attacker` / `AttackPipeline` / `AttackPipelineFactory`）
 - `Assets/Editor/`：编辑器工具（`SceneAutoReload`、`BattlePrefabExporter`）
 
 | 文件 | 职责 | 对外接口 |
@@ -32,7 +32,8 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 | `Entity.cs` | 实体：组件的统一入口 + **对外唯一门面**（回合 / 地图 / UI 只认 Entity）；身份、先攻、回合步数、管线引用由自己持有，生命值与阵营归 `Health`（只转发），**技能由管线组件承担**（不再单独存技能数据） | `int Uuid`、`int initiative`（先攻）、`int moveSteps`、`float Hp` / `MaxHp`、`bool IsDead`、`int Team`、`void TakeDamage(float)`、`void Init(EntityInitData)`、`EntityInitData`（uuid / initiative / moveSteps / map / moveSource / attackType）、`AutoPilot Pilot`、`ObjectMover Mover`、`Health Health`、`Attacker Attacker`、`TargetSourceType SourceType { get; set; }`、`void Wire()`、`void ApplySteps()`、`IEnumerator TakeTurnRoutine()`（攻击→移动→攻击）、`bool AttackOnce()` |
 | `Pipeline/Movement/PathPipelineFactory.cs` | `TargetSourceType` 枚举（ApproachNearestEnemy / FleeNearestEnemy）+ 静态工厂：按枚举造阶段一、统一造阶段二/三 | `CreateSource(type, map, self, team, mover)`、`CreatePlanner(map)`、`CreateExecutor(map, mover)`、`Wire(pilot, type, map, self, team, mover)` |
 | `Pipeline/Attack/AttackPipeline.cs` | 攻击管线三段接口（**都不依赖技能对象**，范围/目标数/伤害各自带）+ 实现：`CooldownCastCheck(cooldown)`（活着+冷却，顺带实现 `ICooldown`）、`MeleeTargetFinder(map)`（范围 1、1 目标）、`RangedTargetFinder(map)`（范围 3、1 目标）、`TargetPicker.Pick(map, caster, range, count, targets)`（两个 finder 共用的挑选逻辑）、`DamageCaster(damage)` | `ICastCheck.CanCast(caster)`、`ITargetFinder.TryFindTargets(caster, targets)`、`ISkillCaster.Cast(caster, targets)`、`ICooldown.StartCooldown()/TickTurn()` |
-| `Pipeline/Attack/Attacker.cs` | 攻击管线编排（挂在实体上，`[RequireComponent(typeof(Entity))]`）：阶段一 → 二 → 三；`Awake`/`Build()` 按攻击类型装配三段（近战/远程各用各的目标获取），属性可替换；含 `[ContextMenu]` 手动跑一次 | `AttackType attackType`（Melee=近战范围1 / Ranged=远程范围3）、`AttackType Type { get; set; }`、`float damage`、`int cooldown`、`ICastCheck CastCheck { get; set; }`、`ITargetFinder TargetFinder { get; set; }`、`ISkillCaster Caster { get; set; }`、`void Build()`、`bool RunPipeline()`、`void TickTurn()`、`List<Entity> targets` |
+| `Pipeline/Attack/AttackPipelineFactory.cs` | `AttackType` 枚举（Melee=近战范围1 / Ranged=远程范围3）+ 静态工厂：按枚举造阶段二、统一造阶段一/三，和移动管线的 `PathPipelineFactory` 一个套路 | `CreateCastCheck(cooldown)`、`CreateTargetFinder(type, map)`、`CreateCaster(damage)`、`Wire(attacker, type, map, cooldown, damage)` |
+| `Pipeline/Attack/Attacker.cs` | 攻击管线编排（挂在实体上，`[RequireComponent(typeof(Entity))]`）：阶段一 → 二 → 三；`Awake`/`Build()` 调 `AttackPipelineFactory.Wire` 按攻击类型装配三段，属性可替换；含 `[ContextMenu]` 手动跑一次 | `AttackType attackType`（枚举定义在 AttackPipelineFactory.cs）、`AttackType Type { get; set; }`、`float damage`、`int cooldown`、`ICastCheck CastCheck { get; set; }`、`ITargetFinder TargetFinder { get; set; }`、`ISkillCaster Caster { get; set; }`、`void Build()`、`bool RunPipeline()`、`void TickTurn()`、`List<Entity> targets` |
 
 ## 场景（Assets/Scenes/SampleScene.unity）
 
