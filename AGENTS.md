@@ -8,13 +8,13 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 - `activeInputHandler: 0` → **老输入系统**，用 `Input.GetAxisRaw` / `Input.GetKey*`，不是 `InputAction`
 - 没有 asmdef：`Assets/Scripts/*.cs` 直接编译进 `Assembly-CSharp`
 - 资源：`Assets/Scenes/SampleScene.unity`；材质 `Assets/prefab/{entity,ground,skill}-material.mat`
-- 场景已不是空场景：`entity` / `entity (1)` / `ground` / 4 个 `skill_*` / `TestCanvas` + 4 个按钮 / `EventSystem` / `TurnManager`，详见下面"场景"一节
+- 场景已不是空场景：`entity` / `entity (1)` / `ground` / `TestCanvas` + 4 个按钮 / `EventSystem` / `TurnManager`，详见下面"场景"一节（旧的 4 个 `skill_*` 已删，`skill-material.mat` 材质文件还留着）
 
 ## 脚本清单
 
 - `Assets/Scripts/`：`Entity`（实体）、`NavTest`（测试用）
 - `Assets/Scripts/Managers/`：管理器（`MapManager` / `TurnManager`）
-- `Assets/Scripts/Components/`：功能组件（`Health` / `ObjectMover` / `Attack`）
+- `Assets/Scripts/Components/`：功能组件（`Health` / `ObjectMover`）
 - `Assets/Scripts/Pipeline/Movement/`：移动管线（`AutoPilot` / `PathPipeline` / `TargetSources` / `PathPipelineFactory`）
 - `Assets/Scripts/Pipeline/Attack/`：攻击管线（`Attacker` / `AttackPipeline`）
 - `Assets/Editor/`：编辑器工具（`SceneAutoReload`、`BattlePrefabExporter`）
@@ -27,7 +27,6 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 | `Pipeline/Movement/TargetSources.cs` | 阶段一的两个实现，依赖由构造函数注入（map / self / team / mover），距离一律用 `MapManager.Manhattan` | `ApproachNearestEnemy(map, self, team)`：走向最近的非己方，落在它四周离自己最近的空格；`FleeNearestEnemy(map, self, team, mover)`：只在**本回合走得到**的格子里（曼哈顿距离 ≤ `mover.stepsLeft`；`stepLimit` 为 0 时视为不限）挑离最近敌方最远的格 |
 | `NavTest.cs` | 测试用：`GoUp/GoDown/GoLeft/GoRight` 找 `anchor` 四周最近的可进入格子，再让 `pilot` 走过去；含手动目标 `manualTarget`（运行时改值即出发，右键组件菜单也能触发） | `MapManager map`、`Transform anchor`、`AutoPilot pilot`、`Vector2Int manualTarget`、`bool GoNearest(Vector2Int)`、`bool GoTo(Vector2Int)` |
 | `Components/Health.cs` | 生命值 + 阵营，死亡时 `SetActive(false)` 并打日志 | `float maxHealth`、`int team`、`float Current`、`bool IsDead`、`TakeDamage(float)` |
-| `Components/Attack.cs` | 碰触体（Collider + Is Trigger）碰到带 `Health` 的对象就扣血 | `float damage`、`Health haver`（排除自己/主人） |
 | `Managers/MapManager.cs` | 网格 + **两份地图数据**（`int[,] cells` 格子→uuid 二维图、`Dictionary<int,Vector2Int> positions` uuid→位置，另有 `byUuid` uuid→实体），外部只读；`TryMove`/`CancelMove`/`SyncOccupied` 负责维护 | `Init()`、`Build()`、`SyncOccupied()`（重建 + uuid 查重）、`ResetEntities()`、`UuidAt(cell)`、`EntityAt(cell)`、`EntitiesAt(cells)`、`EntityOf(uuid)`、`TryGetCell(uuid, out cell)`、`IsOccupied`、`CanEnter`、`InBounds`、`static Manhattan(a, b)`、`CellToWorld(col,row)` / `CellToWorld(cell)`、`WorldToCell`、`TryMove(from, step, out to)`、`CancelMove(from, to)`、`FindPath(from, to, path)`（四方向等权 BFS）、`SelfCheck()` / `SelfCheckPath()`（右键菜单自检）、常量 `Empty=0` / `Unknown=-1` |
 | `Managers/TurnManager.cs` | 回合管理。数据：战斗实体列表 `actors` / 行动栈 `ActionStack`（每回合按先攻重建）/ 回合状态 `State`；每回合逐个出栈行动（`yield return actor.TakeTurnRoutine()`），跑满 `totalRounds` 结束 | `List<Entity> actors`、`List<Entity> ActionStack`、`TurnState State`（Idle / Running / Finished）、`int CurrentRound`、`Entity CurrentActor`、`int StackLeft`、`bool IsFinished`、`void Init(TurnInitData)`、`TurnInitData`（actors / totalRounds / turnDelay）、`void StartBattle()`、`void StopBattle()`、`void BuildActionStack()`、`Entity PopNext()`、`int totalRounds`、`float turnDelay`、`bool autoStart` |
 | `Entity.cs` | 实体：组件的统一入口 + **对外唯一门面**（回合 / 地图 / UI 只认 Entity）；身份、先攻、回合步数、管线引用由自己持有，生命值与阵营归 `Health`（只转发），**技能由管线组件承担**（不再单独存技能数据） | `int Uuid`、`int initiative`（先攻）、`int moveSteps`、`float Hp` / `MaxHp`、`bool IsDead`、`int Team`、`void TakeDamage(float)`、`void Init(EntityInitData)`、`EntityInitData`（uuid / initiative / moveSteps / map / moveSource / attackType）、`AutoPilot Pilot`、`ObjectMover Mover`、`Health Health`、`Attacker Attacker`、`TargetSourceType SourceType { get; set; }`、`void Wire()`、`void ApplySteps()`、`IEnumerator TakeTurnRoutine()`（攻击→移动→攻击）、`bool AttackOnce()` |
@@ -38,8 +37,8 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 ## 场景（Assets/Scenes/SampleScene.unity）
 
 - `ground`：MapManager（cellSize 1；地面 Plane 10×10 → Cols/Rows 10；`entities` = [entity, entity (1)]，`spawnPoints` = [(1,1), (5,5)] 是**格子坐标**）
-- `entity`：Transform/MeshFilter/MeshRenderer + BoxCollider + ObjectMover（`map` 已指向 ground 的 MapManager）+ **AutoPilot** + Health(`team: 0`) + **Entity(uuid 1, 先攻 10, moveSteps 4)** + **Attacker(近战，范围 1 / 1 目标，伤害 10 / 冷却 0)**；4 个 skill_* 是它的子物体（旧的碰触体攻击用，**现在默认不激活**；Rigidbody 已被用户在编辑器里删掉）
-- `entity (1)`：BoxCollider + Health（`team: 1`，敌方）+ **ObjectMover + AutoPilot**（`map` / `mover` 已接好）+ **Entity(uuid 2, 先攻 10, moveSteps 3, targetSourceType = FleeNearestEnemy)** ——**按用户要求不挂攻击/技能组件**（没有 Attack、没有 SkillManager）
+- `entity`：Transform/MeshFilter/MeshRenderer + BoxCollider + ObjectMover（`map` 已指向 ground 的 MapManager）+ **AutoPilot** + Health(`team: 0`) + **Entity(uuid 1, 先攻 10, moveSteps 4)** + **Attacker(近战，范围 1 / 1 目标，伤害 10 / 冷却 0)**（Rigidbody 已被用户在编辑器里删掉；旧的 4 个 skill_* 碰触体子物体已随 `Attack` 一起删除）
+- `entity (1)`：BoxCollider + Health（`team: 1`，敌方）+ **ObjectMover + AutoPilot**（`map` / `mover` 已接好）+ **Entity(uuid 2, 先攻 10, moveSteps 3, targetSourceType = FleeNearestEnemy)** ——只有移动管线（没有 AutoPilot 之外的攻击组件）
 - `TestCanvas`：Canvas(Overlay) + CanvasScaler + GraphicRaycaster + `NavTest`；子物体 btn_up / btn_down / btn_left / btn_right，onClick 分别指到 `NavTest.GoUp / GoDown / GoLeft / GoRight`
 - `EventSystem`：EventSystem + StandaloneInputModule（老输入系统）
 - `TurnManager`：只有 TurnManager 组件（没有渲染物），`actors` = [entity 上的 Entity, entity (1) 上的 Entity]，先攻在各自 `Entity.initiative` 上（现在都是 10 → 相同则按列表顺序，entity 先动），`totalRounds` 5、`autoStart` 开 → 播放就自动跑 5 回合
@@ -65,14 +64,13 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 ## 已知缺口（用户明确跳过的）
 
 - `ObjectMover`：格子移动是四方向直线插值——无斜向、无转向、无寻路绕障碍；`TryMove` 通过时起点的占用就放开了，所以动画中起点是空的（要"动画中两侧都占住"就加个 `Arrive(from)`，到达时再放开起点）；步数上限（`stepLimit`）对所有移动指令都生效（`Move()` 是唯一入口），一格算一步，`Entity.TakeTurnRoutine()` 开始时补满，回合外调 `MoveTo` 也吃这个限制；`MapManager.TryMove` 现在要求**起点也在网格内**（走到地图外的物体会拒绝移动）
-- `Attack`：无攻击冷却、无阵营/友伤过滤、无挥砍窗口（靠启用/禁用 Collider 触发 enter）
 - `MapManager`：地图数据只按 `entities` 列表重建（不在列表里的实体会走、格子记 `Unknown`，索引里查不到）；`entities` 被搬动/销毁后要自己调 `SyncOccupied()` 对齐；寻路是 `MapManager.FindPath`（四方向、每格等权 BFS，`BfsPathPlanner` 只是薄壳；A* / 加权代价没做）；无地形/障碍数据
 - `AutoPilot`：管线只在被调用时跑一次（不会周期性重算/自动追人）、路径算完不重算（中途被挡就放弃）、BFS 的目标格必须可进入（站着人的格子不能当终点）；三段装配以 `Entity.Wire()` 为准，`AutoPilot.Awake` 里的 `??=` 只是没挂 Entity 时的兜底
 - `TargetSources`：目标从 `MapManager.entities`（地图就是单位注册表）里找、按曼哈顿距离挑最近——**不在 map 实体列表里的单位不会被当成目标**；"靠近"落地成"站到敌人四周离自己最近的空格"（敌人那格进不去，**不按步数裁剪**——目标在预算外就这回合走一段、下回合接着走），曼哈顿距离 ≤ 1 视为已贴身、这次不产生目标；"远离"只在本回合步数可达的菱形里挑最远格（地图没有障碍时等价于可达，以后有地形要换成按步数上限做 BFS 洪泛）
 - `Health.team`：阵营就是个 int，没有仇恨表/友军保护
 - `TurnManager`：行动内容写死在 `Entity.TakeTurnRoutine()` 里（固定 攻击-移动-攻击，没做成可配置的行动序列；换顺序就改它）；状态只能轮询 `State` / `IsFinished`，没有回合开始/结束事件；行动栈每回合重建一次，**回合中不重排**（先攻变了要等下回合）；先攻相同时按列表顺序而不掷骰；没有"跳过/延后/守卫"这类规则
 - `Entity` / `PathPipelineFactory`：先攻只有 `Entity.initiative` 一份（`TurnManager` 的排序和行动都走 Entity）；`Entity.Wire()` 每调一次就重建三段（正常只在 `Awake` 调一次，运行中重复调不会打断正在走的协程）
-- `Attacker`：已接进回合（`Entity.TakeTurnRoutine()` 里攻击-移动-攻击，回合开始会 `TickTurn()` 推进冷却）；目标获取从 `MapManager.entities` 里找，只认"挂了 `Entity` 且有 `Health`"的单位、按曼哈顿距离排序；`DamageCaster` 只扣血（没有击退/buff/动画表现）；远程没有视线/弹道判定（只看格子距离）；碰触体那套 `Attack`（4 个 skill_* 子物体）还在，和攻击管线是两套并行机制（`SkillManager` 已删）
+- `Attacker`：已接进回合（`Entity.TakeTurnRoutine()` 里攻击-移动-攻击，回合开始会 `TickTurn()` 推进冷却）；目标获取从 `MapManager.entities` 里找，只认"挂了 `Entity` 且有 `Health`"的单位、按曼哈顿距离排序；`DamageCaster` 只扣血（没有击退/buff/动画表现）；远程没有视线/弹道判定（只看格子距离）（碰触体那套 `Attack` 与 `SkillManager` 都已删除，攻击只有攻击管线一条路）
 - 预制体：`Assets/prefab/*.prefab` 只是对象模板，跨对象引用会被 Unity 置空（见「场景」一节）；场景里目前用的还是原来那几个物体，没有换成预制体实例（要换成实例就用 `SaveAsPrefabAssetAndConnect`）
 - `Entity.uuid`：场景里手填（`entity`=1、`entity (1)`=2）；`SyncOccupied()` 现在会查重但**只警告不修正**（重复时后者这次被跳过），uuid 分配器还没做
 - `NavTest`：纯测试组件——按钮文字用英文（内置字体没有中文字形）、不管连点/换目标、依赖 Inspector 里接好 map / anchor / pilot
@@ -85,7 +83,8 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 - **P3 寻路** ✅ 搬进 `MapManager.FindPath`，`BfsPathPlanner` 退成薄壳
 - **P4 回合** ✅ `TurnManager`：行动栈 `ActionStack`（每回合按先攻重建，`PopNext()` 出栈）+ `TurnState` 状态 + `Init(TurnInitData)`
 - **P5 移动管线「接近」** — 用户确认是笔误（现有 靠近/远离 即全部），未做
-- **P6 收尾** ✅ 场景 / 预制体同步 + 本文档校对（写这段时在做）
+- **P6 收尾** ✅ 场景 / 预制体同步 + 本文档校对
+- **额外清理** ✅ 删掉旧技能系统的残留：`SkillManager`、碰触体 `Attack` 与 4 个 `skill_*` 子物体（攻击只剩攻击管线一条路）；预制体等 Unity 重载后由 `BattlePrefabExporter` 重新导出
 - 未做：Map 配置对象（用户说暂时不用）
 
 ## 版本管理
@@ -101,7 +100,7 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 
 ## 改动前请注意
 
-`Assets/Scripts/` 下的文件用户会直接改（例如 `ObjectMover`、`Attack`、`Health` 都已被手改过）。
+`Assets/Scripts/` 下的文件用户会直接改（例如 `ObjectMover`、`Health`、`MapManager` 都已被手改过）。
 **改之前先读当前文件，只做最小改动，不要整文件重写覆盖用户的手改。**
 
 `Assets/Scenes/SampleScene.unity` 也可以直接改：Unity 那边的 `SceneAutoReload` 会以磁盘为准自动重载（见"场景"一节的编辑器工具），所以**不需要再提醒用户先保存或手动重载**；只在编辑器里手工改场景时才会出现"编辑器版本覆盖磁盘"的情况（那时丢掉的编辑器版本会备份到 `Temp/`）。
