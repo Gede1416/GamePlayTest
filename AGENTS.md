@@ -15,15 +15,16 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 - `Assets/Scripts/`：`Entity`（实体）、`Skill`（技能类，普通类）、`NavTest`（测试用）
 - `Assets/Scripts/Managers/`：管理器（`MapManager` / `TurnManager` / `SkillManager`）
 - `Assets/Scripts/Components/`：功能组件（`Health` / `ObjectMover` / `Attack`）
-- `Assets/Scripts/Pipeline/`：管线（移动管线：`AutoPilot` / `PathPipeline` / `TargetSources` / `PathPipelineFactory`；攻击管线：`Attacker` / `AttackPipeline`）
+- `Assets/Scripts/Pipeline/Movement/`：移动管线（`AutoPilot` / `PathPipeline` / `TargetSources` / `PathPipelineFactory`）
+- `Assets/Scripts/Pipeline/Attack/`：攻击管线（`Attacker` / `AttackPipeline`）
 - `Assets/Editor/`：编辑器工具（`SceneAutoReload`）
 
 | 文件 | 职责 | 对外接口 |
 |---|---|---|
 | `Components/ObjectMover.cs` | 只收移动指令并播协程：`Move(step)` → 查剩余步数 → 问 `MapManager.TryMove` 要合法性与落点 → `Vector3.Lerp` 走到落点；**不碰地图数据**，动画中 `walking` 阻断输入 | `MapManager map`、`float speed`、`Vector3 moveInput`、`int stepLimit`（每回合步数上限，0=不限）、`int stepsLeft`、`bool HasSteps`、`void ResetSteps()`、`bool Move(Vector2Int step)`、`bool IsMoving`、`static Vector2Int ToStep(Vector2)`、`static Vector3 ReadWASD()` |
-| `Pipeline/AutoPilot.cs` | 寻路管线编排（`[RequireComponent(typeof(ObjectMover))]`）：阶段一 → 阶段二 → 阶段三；三段由 `Entity.Wire()` 装配，`Awake` 里的 `??=` 只是兜底 | `ITargetSource TargetSource { get; set; }`、`IPathPlanner Planner { get; set; }`、`IPathExecutor Executor { get; set; }`、`bool RunPipeline()`、`bool MoveTo(Vector3)`、`bool MoveTo(Vector2Int)`、`void Stop()`、`List<Vector2Int> path`、`bool IsFollowing`、`int Team`（取自自己的 `Health.team`） |
-| `Pipeline/PathPipeline.cs` | 三个阶段接口（依赖一律构造函数注入）+ `BfsPathPlanner(map)`（BFS 四方向等权）+ `MoverPathExecutor(map, mover)`（逐格交给 ObjectMover） | `ITargetSource.TryGetTarget(out cell)`、`IPathPlanner.TryBuild(start, goal, path)`、`IPathExecutor.Run(path)` |
-| `Pipeline/TargetSources.cs` | 阶段一的两个实现，依赖由构造函数注入（map / self / team / mover），距离一律用 `MapManager.Manhattan` | `ApproachNearestEnemy(map, self, team)`：走向最近的非己方，落在它四周离自己最近的空格；`FleeNearestEnemy(map, self, team, mover)`：只在**本回合走得到**的格子里（曼哈顿距离 ≤ `mover.stepsLeft`；`stepLimit` 为 0 时视为不限）挑离最近敌方最远的格 |
+| `Pipeline/Movement/AutoPilot.cs` | 寻路管线编排（`[RequireComponent(typeof(ObjectMover))]`）：阶段一 → 阶段二 → 阶段三；三段由 `Entity.Wire()` 装配，`Awake` 里的 `??=` 只是兜底 | `ITargetSource TargetSource { get; set; }`、`IPathPlanner Planner { get; set; }`、`IPathExecutor Executor { get; set; }`、`bool RunPipeline()`、`bool MoveTo(Vector3)`、`bool MoveTo(Vector2Int)`、`void Stop()`、`List<Vector2Int> path`、`bool IsFollowing`、`int Team`（取自自己的 `Health.team`） |
+| `Pipeline/Movement/PathPipeline.cs` | 三个阶段接口（依赖一律构造函数注入）+ `BfsPathPlanner(map)`（BFS 四方向等权）+ `MoverPathExecutor(map, mover)`（逐格交给 ObjectMover） | `ITargetSource.TryGetTarget(out cell)`、`IPathPlanner.TryBuild(start, goal, path)`、`IPathExecutor.Run(path)` |
+| `Pipeline/Movement/TargetSources.cs` | 阶段一的两个实现，依赖由构造函数注入（map / self / team / mover），距离一律用 `MapManager.Manhattan` | `ApproachNearestEnemy(map, self, team)`：走向最近的非己方，落在它四周离自己最近的空格；`FleeNearestEnemy(map, self, team, mover)`：只在**本回合走得到**的格子里（曼哈顿距离 ≤ `mover.stepsLeft`；`stepLimit` 为 0 时视为不限）挑离最近敌方最远的格 |
 | `NavTest.cs` | 测试用：`GoUp/GoDown/GoLeft/GoRight` 找 `anchor` 四周最近的可进入格子，再让 `pilot` 走过去；含手动目标 `manualTarget`（运行时改值即出发，右键组件菜单也能触发） | `MapManager map`、`Transform anchor`、`AutoPilot pilot`、`Vector2Int manualTarget`、`bool GoNearest(Vector2Int)`、`bool GoTo(Vector2Int)` |
 | `Components/Health.cs` | 生命值 + 阵营，死亡时 `SetActive(false)` 并打日志 | `float maxHealth`、`int team`、`float Current`、`bool IsDead`、`TakeDamage(float)` |
 | `Components/Attack.cs` | 碰触体（Collider + Is Trigger）碰到带 `Health` 的对象就扣血 | `float damage`、`Health haver`（排除自己/主人） |
@@ -31,10 +32,10 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 | `Managers/MapManager.cs` | 自己管理网格与格子占用数据（外部只读）：按 map 包围盒 x/z 划分网格、实体初始位置（格子坐标）、`TryMove` 裁决移动并改占用 | `Build()`、`SyncOccupied()`、`ResetEntities()`、`CellToWorld`、`WorldToCell`、`InBounds`、`IsOccupied`、`CanEnter`、`static Manhattan(a, b)`、`TryMove(from, step, out to)`、`CancelMove(from, to)` |
 | `Managers/TurnManager.cs` | 回合管理：每回合按 `Entity.speed` 让每个角色行动一次，跑满 `totalRounds` 就结束；角色"行动" = `Entity.TakeTurn()` 并等 `Pilot.IsFollowing` 走完 | `List<Entity> actors`、`int totalRounds`、`float turnDelay`、`bool autoStart`、`void StartBattle()`、`void StopBattle()`、`List<Entity> Order()`、`int CurrentRound`、`Entity CurrentActor`、`bool IsFinished` |
 | `Entity.cs` | 实体：一个角色身上组件的统一入口（`[RequireComponent]` ObjectMover + AutoPilot），`Awake` 里用工厂按枚举装配管线三段 + 写步数上限；`SourceType` 改枚举即重建阶段一 | `AutoPilot Pilot`、`ObjectMover Mover`、`Health Health`、`int Team`、`int speed`（先攻）、`int moveSteps`（每回合步数上限，0=不限）、`TargetSourceType SourceType { get; set; }`、`void Wire()`、`void ApplySteps()`、`bool TakeTurn()` |
-| `Pipeline/PathPipelineFactory.cs` | `TargetSourceType` 枚举（ApproachNearestEnemy / FleeNearestEnemy）+ 静态工厂：按枚举造阶段一、统一造阶段二/三 | `CreateSource(type, map, self, team, mover)`、`CreatePlanner(map)`、`CreateExecutor(map, mover)`、`Wire(pilot, type, map, self, team, mover)` |
+| `Pipeline/Movement/PathPipelineFactory.cs` | `TargetSourceType` 枚举（ApproachNearestEnemy / FleeNearestEnemy）+ 静态工厂：按枚举造阶段一、统一造阶段二/三 | `CreateSource(type, map, self, team, mover)`、`CreatePlanner(map)`、`CreateExecutor(map, mover)`、`Wire(pilot, type, map, self, team, mover)` |
 | `Skill.cs` | 技能（**普通类**，`[System.Serializable]`，Inspector 里可配）：技能释放前置条件 `CanCast(caster)`（虚方法）+ 目标获取参数 `range`/`targetCount` + 对目标附加效果 `Cast(caster, targets)`（虚方法）+ 冷却 | `bool CanCast(Entity)`、`void Cast(Entity, List<Entity>)`、`void StartCooldown()`、`void TickTurn()`、`int range`、`int targetCount`、`int cooldown`、`float damage`、`int CooldownLeft` |
-| `Pipeline/AttackPipeline.cs` | 攻击管线三段接口 + 三个默认实现：`SkillReadyCheck`（问技能自己）、`RangeTargetFinder(map)`（范围内按曼哈顿距离取前 N 个非己方）、`DefaultSkillCaster`（调 `Skill.Cast` 并进冷却） | `ICastCheck.CanCast(skill, caster)`、`ITargetFinder.TryFindTargets(skill, caster, targets)`、`ISkillCaster.Cast(skill, caster, targets)` |
-| `Pipeline/Attacker.cs` | 攻击管线编排（挂在实体上，`[RequireComponent(typeof(Entity))]`）：阶段一 → 二 → 三；`Awake` 里 `??=` 装配默认三段，属性可替换；含 `[ContextMenu]` 手动跑一次 | `Skill skill`、`ICastCheck CastCheck { get; set; }`、`ITargetFinder TargetFinder { get; set; }`、`ISkillCaster Caster { get; set; }`、`bool RunPipeline()`、`void TickTurn()`、`List<Entity> targets` |
+| `Pipeline/Attack/AttackPipeline.cs` | 攻击管线三段接口 + 三个默认实现：`SkillReadyCheck`（问技能自己）、`RangeTargetFinder(map)`（范围内按曼哈顿距离取前 N 个非己方）、`DefaultSkillCaster`（调 `Skill.Cast` 并进冷却） | `ICastCheck.CanCast(skill, caster)`、`ITargetFinder.TryFindTargets(skill, caster, targets)`、`ISkillCaster.Cast(skill, caster, targets)` |
+| `Pipeline/Attack/Attacker.cs` | 攻击管线编排（挂在实体上，`[RequireComponent(typeof(Entity))]`）：阶段一 → 二 → 三；`Awake` 里 `??=` 装配默认三段，属性可替换；含 `[ContextMenu]` 手动跑一次 | `Skill skill`、`ICastCheck CastCheck { get; set; }`、`ITargetFinder TargetFinder { get; set; }`、`ISkillCaster Caster { get; set; }`、`bool RunPipeline()`、`void TickTurn()`、`List<Entity> targets` |
 
 ## 场景（Assets/Scenes/SampleScene.unity）
 
