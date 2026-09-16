@@ -29,7 +29,7 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 | `Components/Health.cs` | 生命值 + 阵营，死亡时 `SetActive(false)` 并打日志 | `float maxHealth`、`int team`、`float Current`、`bool IsDead`、`TakeDamage(float)` |
 | `Components/Attack.cs` | 碰触体（Collider + Is Trigger）碰到带 `Health` 的对象就扣血 | `float damage`、`Health haver`（排除自己/主人） |
 | `Managers/SkillManager.cs` | 缓存技能 GameObject 列表，键 1~6 显示对应项 0.5 秒，同时只能放一个 | `List<GameObject> skills`、`float showTime`、`Show(int index)` |
-| `Managers/MapManager.cs` | 自己管理网格与格子占用数据（外部只读）：按 map 包围盒 x/z 划分网格、实体初始位置（格子坐标）、`TryMove` 裁决移动并改占用 | `Build()`、`SyncOccupied()`、`ResetEntities()`、`CellToWorld`、`WorldToCell`、`InBounds`、`IsOccupied`、`CanEnter`、`static Manhattan(a, b)`、`TryMove(from, step, out to)`、`CancelMove(from, to)` |
+| `Managers/MapManager.cs` | 网格 + **两份地图数据**（`int[,] cells` 格子→uuid 二维图、`Dictionary<int,Vector2Int> positions` uuid→位置，另有 `byUuid` uuid→实体），外部只读；`TryMove`/`CancelMove`/`SyncOccupied` 负责维护 | `Init()`、`Build()`、`SyncOccupied()`（重建 + uuid 查重）、`ResetEntities()`、`UuidAt(cell)`、`EntityAt(cell)`、`EntitiesAt(cells)`、`EntityOf(uuid)`、`TryGetCell(uuid, out cell)`、`IsOccupied`、`CanEnter`、`InBounds`、`static Manhattan(a, b)`、`CellToWorld(col,row)` / `CellToWorld(cell)`、`WorldToCell`、`TryMove(from, step, out to)`、`CancelMove(from, to)`、`SelfCheck()`（右键菜单自检）、常量 `Empty=0` / `Unknown=-1` |
 | `Managers/TurnManager.cs` | 回合管理：每回合按 `Entity.initiative` 让每个角色行动一次，跑满 `totalRounds` 就结束；角色"行动" = `yield return actor.TakeTurnRoutine()`（实体自己决定做了什么） | `List<Entity> actors`、`int totalRounds`、`float turnDelay`、`bool autoStart`、`void StartBattle()`、`void StopBattle()`、`List<Entity> Order()`、`int CurrentRound`、`Entity CurrentActor`、`bool IsFinished` |
 | `Entity.cs` | 实体：组件的统一入口 + **对外唯一门面**（回合 / 地图 / UI 只认 Entity）；身份、先攻、回合步数、管线引用由自己持有，生命值与阵营归 `Health`（只转发），**技能由管线组件承担**（不再单独存技能数据） | `int Uuid`、`int initiative`（先攻）、`int moveSteps`、`float Hp` / `MaxHp`、`bool IsDead`、`int Team`、`void TakeDamage(float)`、`void Init(EntityInitData)`、`EntityInitData`（uuid / initiative / moveSteps / map / moveSource / attackType）、`AutoPilot Pilot`、`ObjectMover Mover`、`Health Health`、`Attacker Attacker`、`TargetSourceType SourceType { get; set; }`、`void Wire()`、`void ApplySteps()`、`IEnumerator TakeTurnRoutine()`（攻击→移动→攻击）、`bool AttackOnce()` |
 | `Pipeline/Movement/PathPipelineFactory.cs` | `TargetSourceType` 枚举（ApproachNearestEnemy / FleeNearestEnemy）+ 静态工厂：按枚举造阶段一、统一造阶段二/三 | `CreateSource(type, map, self, team, mover)`、`CreatePlanner(map)`、`CreateExecutor(map, mover)`、`Wire(pilot, type, map, self, team, mover)` |
@@ -57,6 +57,7 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 - 用 `#` 对 `Vector2Int` 的格子坐标：`.x` = 列（世界 x 方向），`.y` = 行（世界 z 方向），**不是世界高度**。
 - 世界坐标用 `Vector3`，地面用 `Vector2` 存 `(x, z)`；不要用 Vector2 直接赋给 `transform.position`（会把 y/z 清 0）。
 - 管线三段（移动：`ITargetSource` / `IPathPlanner` / `IPathExecutor`；攻击：`ICastCheck` / `ITargetFinder` / `ISkillCaster`）的依赖都走**构造函数注入**，接口只收"这次要处理什么"（起点/终点/路径；施法者/目标列表）；不要往接口里塞 AutoPilot / MapManager / Entity。
+- **地图数据**：格子→uuid 二维图与 uuid→位置/实体 字典都由 `MapManager` 维护，外部只读查询（`UuidAt` / `EntityAt` / `EntitiesAt` / `EntityOf` / `TryGetCell`）；要改只能走 `TryMove` / `CancelMove` / `SyncOccupied`。
 - **数据所有权**：一份数据只有一个所有者。身份(uuid) / 先攻 / 回合步数 / 管线类型 归 `Entity`；生命值 + 阵营归 `Health`；剩余步数、动画中、冷却剩余属于各自组件的运行期状态。`Entity` 是对外唯一门面（`Hp` / `MaxHp` / `IsDead` / `Team` / `TakeDamage()` 转发），**不要把组件自己的属性搬进 Entity**（会变成两份真相 + 组件不能单独工作）。
 - `Health` 是 2D/3D 无关的，其余脚本的维度假设见上表。
 - 需要可视化的逻辑（如网格划分）用 `OnDrawGizmosSelected` 画出来核对，不写单元测试。
@@ -66,7 +67,7 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 - `ObjectMover`：格子移动是四方向直线插值——无斜向、无转向、无寻路绕障碍；`TryMove` 通过时起点的占用就放开了，所以动画中起点是空的（要"动画中两侧都占住"就加个 `Arrive(from)`，到达时再放开起点）；步数上限（`stepLimit`）对所有移动指令都生效（`Move()` 是唯一入口），一格算一步，`Entity.TakeTurnRoutine()` 开始时补满，回合外调 `MoveTo` 也吃这个限制
 - `Attack`：无攻击冷却、无阵营/友伤过滤、无挥砍窗口（靠启用/禁用 Collider 触发 enter）
 - `SkillManager`：无冷却、无前摇、无打断（`Show` 在释放中直接忽略输入）
-- `MapManager`：占用数据只按 `entities` 列表重建（不在列表里的实体会走但不会被记录占用）；`entities` 被搬动/销毁后要自己调 `SyncOccupied()` 对齐；无地形/障碍数据、无寻路
+- `MapManager`：地图数据只按 `entities` 列表重建（不在列表里的实体会走、格子记 `Unknown`，索引里查不到）；`entities` 被搬动/销毁后要自己调 `SyncOccupied()` 对齐；寻路仍在 `Pipeline/Movement` 的 `BfsPathPlanner` 里（P3 才搬进来）；无地形/障碍数据
 - `AutoPilot`：管线只在被调用时跑一次（不会周期性重算/自动追人）、路径算完不重算（中途被挡就放弃）、BFS 的目标格必须可进入（站着人的格子不能当终点）；三段装配以 `Entity.Wire()` 为准，`AutoPilot.Awake` 里的 `??=` 只是没挂 Entity 时的兜底
 - `TargetSources`：目标从 `MapManager.entities`（地图就是单位注册表）里找、按曼哈顿距离挑最近——**不在 map 实体列表里的单位不会被当成目标**；"靠近"落地成"站到敌人四周离自己最近的空格"（敌人那格进不去，**不按步数裁剪**——目标在预算外就这回合走一段、下回合接着走），曼哈顿距离 ≤ 1 视为已贴身、这次不产生目标；"远离"只在本回合步数可达的菱形里挑最远格（地图没有障碍时等价于可达，以后有地形要换成按步数上限做 BFS 洪泛）
 - `Health.team`：阵营就是个 int，没有仇恨表/友军保护
@@ -74,7 +75,7 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 - `Entity` / `PathPipelineFactory`：先攻只有 `Entity.initiative` 一份（`TurnManager` 的排序和行动都走 Entity）；`Entity.Wire()` 每调一次就重建三段（正常只在 `Awake` 调一次，运行中重复调不会打断正在走的协程）
 - `Attacker`：已接进回合（`Entity.TakeTurnRoutine()` 里攻击-移动-攻击，回合开始会 `TickTurn()` 推进冷却）；目标获取从 `MapManager.entities` 里找，只认"挂了 `Entity` 且有 `Health`"的单位、按曼哈顿距离排序；`DamageCaster` 只扣血（没有击退/buff/动画表现）；远程没有视线/弹道判定（只看格子距离）；技能表现与碰触体那套 `SkillManager` + `Attack` 是两套并行机制
 - 预制体：`Assets/prefab/*.prefab` 只是对象模板，跨对象引用会被 Unity 置空（见「场景」一节）；场景里目前用的还是原来那几个物体，没有换成预制体实例（要换成实例就用 `SaveAsPrefabAssetAndConnect`）
-- `Entity.uuid`：场景里手填（`entity`=1、`entity (1)`=2），**目前没有查重**；等地图索引（P2）上线再补唯一性校验
+- `Entity.uuid`：场景里手填（`entity`=1、`entity (1)`=2）；`SyncOccupied()` 现在会查重但**只警告不修正**（重复时后者这次被跳过），uuid 分配器还没做
 - `NavTest`：纯测试组件——按钮文字用英文（内置字体没有中文字形）、不管连点/换目标、依赖 Inspector 里接好 map / anchor / pilot
 - 脚本都还没在播放模式下跑过（两个角色都没有 Rigidbody，移动是直接写 `transform.position`）；预制体由 `BattlePrefabExporter` 生成，见「场景」一节
 
