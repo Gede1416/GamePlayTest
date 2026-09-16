@@ -4,12 +4,12 @@ using System.Linq;
 using UnityEngine;
 
 /// <summary>
-/// 回合管理器：每回合按先攻（Entity.speed 大的先动）依次让每个角色行动一次，跑满给定的回合数就结束。
+/// 回合管理器：每回合按先攻（Entity.initiative 大的先动）依次让每个角色行动一次，跑满给定的回合数就结束。
 /// 角色的"行动" = yield return Entity.TakeTurnRoutine()（实体自己决定做什么，现在是 攻击-移动-攻击）。
 /// </summary>
 public class TurnManager : MonoBehaviour
 {
-    [Tooltip("参战角色：行动顺序按各自 Entity.speed 排（大的先动，相同则按列表顺序）")]
+    [Tooltip("参战角色：行动顺序按各自 Entity.initiative 排（大的先动，相同则按列表顺序）")]
     public List<Entity> actors = new List<Entity>();
 
     [Tooltip("给定回合数：跑满这个回合数就结束")]
@@ -56,7 +56,7 @@ public class TurnManager : MonoBehaviour
     /// <summary>本回合的行动顺序：先攻大的在前，相同则保持列表顺序</summary>
     public List<Entity> Order()
     {
-        return actors.Where(a => a != null).OrderByDescending(a => a.speed).ToList();
+        return actors.Where(a => a != null).OrderByDescending(a => a.initiative).ToList();
     }
 
     IEnumerator Run()
@@ -69,7 +69,7 @@ public class TurnManager : MonoBehaviour
             {
                 if (!actor.gameObject.activeInHierarchy) continue;   // 死了/被禁用就跳过这次行动
                 CurrentActor = actor;
-                Debug.Log($"[TurnManager] 第 {CurrentRound} 回合，{actor.name} 行动（先攻 {actor.speed}）");
+                Debug.Log($"[TurnManager] 第 {CurrentRound} 回合，{actor.name} 行动（先攻 {actor.initiative}）");
 
                 yield return actor.TakeTurnRoutine();   // 攻击 -> 移动 -> 攻击（内部会等移动走完）
 

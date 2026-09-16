@@ -30,8 +30,8 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 | `Components/Attack.cs` | 碰触体（Collider + Is Trigger）碰到带 `Health` 的对象就扣血 | `float damage`、`Health haver`（排除自己/主人） |
 | `Managers/SkillManager.cs` | 缓存技能 GameObject 列表，键 1~6 显示对应项 0.5 秒，同时只能放一个 | `List<GameObject> skills`、`float showTime`、`Show(int index)` |
 | `Managers/MapManager.cs` | 自己管理网格与格子占用数据（外部只读）：按 map 包围盒 x/z 划分网格、实体初始位置（格子坐标）、`TryMove` 裁决移动并改占用 | `Build()`、`SyncOccupied()`、`ResetEntities()`、`CellToWorld`、`WorldToCell`、`InBounds`、`IsOccupied`、`CanEnter`、`static Manhattan(a, b)`、`TryMove(from, step, out to)`、`CancelMove(from, to)` |
-| `Managers/TurnManager.cs` | 回合管理：每回合按 `Entity.speed` 让每个角色行动一次，跑满 `totalRounds` 就结束；角色"行动" = `yield return actor.TakeTurnRoutine()`（实体自己决定做了什么） | `List<Entity> actors`、`int totalRounds`、`float turnDelay`、`bool autoStart`、`void StartBattle()`、`void StopBattle()`、`List<Entity> Order()`、`int CurrentRound`、`Entity CurrentActor`、`bool IsFinished` |
-| `Entity.cs` | 实体：一个角色身上组件的统一入口（`[RequireComponent]` ObjectMover + AutoPilot），`Awake` 里用工厂按枚举装配管线三段 + 写步数上限；`SourceType` 改枚举即重建阶段一 | `AutoPilot Pilot`、`ObjectMover Mover`、`Health Health`、`int Team`、`int speed`（先攻）、`int moveSteps`（每回合步数上限，0=不限）、`TargetSourceType SourceType { get; set; }`、`void Wire()`、`void ApplySteps()`、`IEnumerator TakeTurnRoutine()`（**攻击 -> 移动 -> 攻击**）、`bool AttackOnce()`、`Attacker Attacker` |
+| `Managers/TurnManager.cs` | 回合管理：每回合按 `Entity.initiative` 让每个角色行动一次，跑满 `totalRounds` 就结束；角色"行动" = `yield return actor.TakeTurnRoutine()`（实体自己决定做了什么） | `List<Entity> actors`、`int totalRounds`、`float turnDelay`、`bool autoStart`、`void StartBattle()`、`void StopBattle()`、`List<Entity> Order()`、`int CurrentRound`、`Entity CurrentActor`、`bool IsFinished` |
+| `Entity.cs` | 实体：组件的统一入口 + **对外唯一门面**（回合 / 地图 / UI 只认 Entity）；身份、先攻、回合步数、管线引用由自己持有，生命值与阵营归 `Health`（只转发），**技能由管线组件承担**（不再单独存技能数据） | `int Uuid`、`int initiative`（先攻）、`int moveSteps`、`float Hp` / `MaxHp`、`bool IsDead`、`int Team`、`void TakeDamage(float)`、`void Init(EntityInitData)`、`EntityInitData`（uuid / initiative / moveSteps / map / moveSource / attackType）、`AutoPilot Pilot`、`ObjectMover Mover`、`Health Health`、`Attacker Attacker`、`TargetSourceType SourceType { get; set; }`、`void Wire()`、`void ApplySteps()`、`IEnumerator TakeTurnRoutine()`（攻击→移动→攻击）、`bool AttackOnce()` |
 | `Pipeline/Movement/PathPipelineFactory.cs` | `TargetSourceType` 枚举（ApproachNearestEnemy / FleeNearestEnemy）+ 静态工厂：按枚举造阶段一、统一造阶段二/三 | `CreateSource(type, map, self, team, mover)`、`CreatePlanner(map)`、`CreateExecutor(map, mover)`、`Wire(pilot, type, map, self, team, mover)` |
 | `Pipeline/Attack/AttackPipeline.cs` | 攻击管线三段接口（**都不依赖技能对象**，范围/目标数/伤害各自带）+ 实现：`CooldownCastCheck(cooldown)`（活着+冷却，顺带实现 `ICooldown`）、`MeleeTargetFinder(map)`（范围 1、1 目标）、`RangedTargetFinder(map)`（范围 3、1 目标）、`TargetPicker.Pick(map, caster, range, count, targets)`（两个 finder 共用的挑选逻辑）、`DamageCaster(damage)` | `ICastCheck.CanCast(caster)`、`ITargetFinder.TryFindTargets(caster, targets)`、`ISkillCaster.Cast(caster, targets)`、`ICooldown.StartCooldown()/TickTurn()` |
 | `Pipeline/Attack/Attacker.cs` | 攻击管线编排（挂在实体上，`[RequireComponent(typeof(Entity))]`）：阶段一 → 二 → 三；`Awake`/`Build()` 按攻击类型装配三段（近战/远程各用各的目标获取），属性可替换；含 `[ContextMenu]` 手动跑一次 | `AttackType attackType`（Melee=近战范围1 / Ranged=远程范围3）、`AttackType Type { get; set; }`、`float damage`、`int cooldown`、`ICastCheck CastCheck { get; set; }`、`ITargetFinder TargetFinder { get; set; }`、`ISkillCaster Caster { get; set; }`、`void Build()`、`bool RunPipeline()`、`void TickTurn()`、`List<Entity> targets` |
@@ -39,11 +39,11 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 ## 场景（Assets/Scenes/SampleScene.unity）
 
 - `ground`：MapManager（cellSize 1；地面 Plane 10×10 → Cols/Rows 10；`entities` = [entity, entity (1)]，`spawnPoints` = [(1,1), (5,5)] 是**格子坐标**）
-- `entity`：Transform/MeshFilter/MeshRenderer + BoxCollider + ObjectMover（`map` 已指向 ground 的 MapManager）+ **AutoPilot** + Health(`team: 0`) + SkillManager + **Entity(先攻 10, moveSteps 4)** + **Attacker(近战，范围 1 / 1 目标，伤害 10 / 冷却 0)**；4 个 skill_* 是它的子物体（Rigidbody 已被用户在编辑器里删掉）
-- `entity (1)`：BoxCollider + Health（`team: 1`，敌方）+ **ObjectMover + AutoPilot**（`map` / `mover` 已接好）+ **Entity(先攻 10, moveSteps 3, targetSourceType = FleeNearestEnemy)** ——**按用户要求不挂攻击/技能组件**（没有 Attack、没有 SkillManager）
+- `entity`：Transform/MeshFilter/MeshRenderer + BoxCollider + ObjectMover（`map` 已指向 ground 的 MapManager）+ **AutoPilot** + Health(`team: 0`) + SkillManager + **Entity(uuid 1, 先攻 10, moveSteps 4)** + **Attacker(近战，范围 1 / 1 目标，伤害 10 / 冷却 0)**；4 个 skill_* 是它的子物体（Rigidbody 已被用户在编辑器里删掉）
+- `entity (1)`：BoxCollider + Health（`team: 1`，敌方）+ **ObjectMover + AutoPilot**（`map` / `mover` 已接好）+ **Entity(uuid 2, 先攻 10, moveSteps 3, targetSourceType = FleeNearestEnemy)** ——**按用户要求不挂攻击/技能组件**（没有 Attack、没有 SkillManager）
 - `TestCanvas`：Canvas(Overlay) + CanvasScaler + GraphicRaycaster + `NavTest`；子物体 btn_up / btn_down / btn_left / btn_right，onClick 分别指到 `NavTest.GoUp / GoDown / GoLeft / GoRight`
 - `EventSystem`：EventSystem + StandaloneInputModule（老输入系统）
-- `TurnManager`：只有 TurnManager 组件（没有渲染物），`actors` = [entity 上的 Entity, entity (1) 上的 Entity]，先攻在各自 `Entity.speed` 上（现在都是 10 → 相同则按列表顺序，entity 先动），`totalRounds` 5、`autoStart` 开 → 播放就自动跑 5 回合
+- `TurnManager`：只有 TurnManager 组件（没有渲染物），`actors` = [entity 上的 Entity, entity (1) 上的 Entity]，先攻在各自 `Entity.initiative` 上（现在都是 10 → 相同则按列表顺序，entity 先动），`totalRounds` 5、`autoStart` 开 → 播放就自动跑 5 回合
 - 场景检查：`python _validate_scene.py`（查 fileID 引用、组件归属、父子关系、SceneRoots、缩进）；手改场景前的备份在 `SampleScene.unity.bak`
 - 预制体：`Assets/prefab/Entity.prefab`（实体，来自场景 `entity`）、`Map.prefab`（地图，来自 `ground`）、`TurnController.prefab`（回合控制器，来自 `TurnManager`）——由编辑器工具 `Assets/Editor/BattlePrefabExporter.cs` 生成（首次加载自动跑一次，菜单 `Tools/导出战斗对象预制体` 可重跑）。
   注意：跨对象的**场景**引用（`MapManager` 组件、`MapManager.entities`、`TurnManager.actors` 等）Unity 不允许写进预制体，生成时会被置空；运行时靠组件 `Awake` 里的 `FindObjectOfType<MapManager>()` 找回来，`actors` / `entities` 这类列表要在场景里的实例上重新接。
@@ -57,6 +57,7 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 - 用 `#` 对 `Vector2Int` 的格子坐标：`.x` = 列（世界 x 方向），`.y` = 行（世界 z 方向），**不是世界高度**。
 - 世界坐标用 `Vector3`，地面用 `Vector2` 存 `(x, z)`；不要用 Vector2 直接赋给 `transform.position`（会把 y/z 清 0）。
 - 管线三段（移动：`ITargetSource` / `IPathPlanner` / `IPathExecutor`；攻击：`ICastCheck` / `ITargetFinder` / `ISkillCaster`）的依赖都走**构造函数注入**，接口只收"这次要处理什么"（起点/终点/路径；施法者/目标列表）；不要往接口里塞 AutoPilot / MapManager / Entity。
+- **数据所有权**：一份数据只有一个所有者。身份(uuid) / 先攻 / 回合步数 / 管线类型 归 `Entity`；生命值 + 阵营归 `Health`；剩余步数、动画中、冷却剩余属于各自组件的运行期状态。`Entity` 是对外唯一门面（`Hp` / `MaxHp` / `IsDead` / `Team` / `TakeDamage()` 转发），**不要把组件自己的属性搬进 Entity**（会变成两份真相 + 组件不能单独工作）。
 - `Health` 是 2D/3D 无关的，其余脚本的维度假设见上表。
 - 需要可视化的逻辑（如网格划分）用 `OnDrawGizmosSelected` 画出来核对，不写单元测试。
 
@@ -70,9 +71,10 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 - `TargetSources`：目标从 `MapManager.entities`（地图就是单位注册表）里找、按曼哈顿距离挑最近——**不在 map 实体列表里的单位不会被当成目标**；"靠近"落地成"站到敌人四周离自己最近的空格"（敌人那格进不去，**不按步数裁剪**——目标在预算外就这回合走一段、下回合接着走），曼哈顿距离 ≤ 1 视为已贴身、这次不产生目标；"远离"只在本回合步数可达的菱形里挑最远格（地图没有障碍时等价于可达，以后有地形要换成按步数上限做 BFS 洪泛）
 - `Health.team`：阵营就是个 int，没有仇恨表/友军保护
 - `TurnManager`：行动内容写死在 `Entity.TakeTurnRoutine()` 里（现在固定是 攻击-移动-攻击，没做成可配置的行动序列；要换顺序就改它）、没有回合开始/结束事件（只能轮询 `IsFinished`）、先攻相同时按列表顺序而不掷骰、没有"跳过/延后/守卫"这类规则
-- `Entity` / `PathPipelineFactory`：先攻只有 `Entity.speed` 一份（`TurnManager` 的排序和行动都走 Entity）；`Entity.Wire()` 每调一次就重建三段（正常只在 `Awake` 调一次，运行中重复调不会打断正在走的协程）
+- `Entity` / `PathPipelineFactory`：先攻只有 `Entity.initiative` 一份（`TurnManager` 的排序和行动都走 Entity）；`Entity.Wire()` 每调一次就重建三段（正常只在 `Awake` 调一次，运行中重复调不会打断正在走的协程）
 - `Attacker`：已接进回合（`Entity.TakeTurnRoutine()` 里攻击-移动-攻击，回合开始会 `TickTurn()` 推进冷却）；目标获取从 `MapManager.entities` 里找，只认"挂了 `Entity` 且有 `Health`"的单位、按曼哈顿距离排序；`DamageCaster` 只扣血（没有击退/buff/动画表现）；远程没有视线/弹道判定（只看格子距离）；技能表现与碰触体那套 `SkillManager` + `Attack` 是两套并行机制
 - 预制体：`Assets/prefab/*.prefab` 只是对象模板，跨对象引用会被 Unity 置空（见「场景」一节）；场景里目前用的还是原来那几个物体，没有换成预制体实例（要换成实例就用 `SaveAsPrefabAssetAndConnect`）
+- `Entity.uuid`：场景里手填（`entity`=1、`entity (1)`=2），**目前没有查重**；等地图索引（P2）上线再补唯一性校验
 - `NavTest`：纯测试组件——按钮文字用英文（内置字体没有中文字形）、不管连点/换目标、依赖 Inspector 里接好 map / anchor / pilot
 - 脚本都还没在播放模式下跑过（两个角色都没有 Rigidbody，移动是直接写 `transform.position`）；预制体由 `BattlePrefabExporter` 生成，见「场景」一节
 

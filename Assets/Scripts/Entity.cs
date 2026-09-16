@@ -2,26 +2,33 @@ using System.Collections;
 using UnityEngine;
 
 /// <summary>
-/// 实体：一个角色身上组件的统一入口，并按枚举工厂装配寻路管线的三段。
-/// 需要 ObjectMover + AutoPilot（没有会自动补），Health 可选（有就拿来定阵营）。
+/// 实体：一个角色身上组件的统一入口，也是对外唯一门面（回合 / 地图 / UI / 技能都只认 Entity）。
+/// 数据所有权：身份(uuid)、先攻、回合步数、管线引用由 Entity 自己持有；
+/// 生命值与阵营仍由 Health 持有（Entity 只转发，保证一份真相）；"技能"完全由管线组件承担
+/// （移动管线 AutoPilot + 攻击管线 Attacker），Entity 不另存技能数据。
 /// </summary>
 [RequireComponent(typeof(ObjectMover))]
 [RequireComponent(typeof(AutoPilot))]
 public class Entity : MonoBehaviour
 {
-    [Tooltip("地图管理器；留空则取场景里的第一个")]
-    public MapManager map;
+    [Header("数据")]
+    [Tooltip("实体唯一 id：地图的 格子→uuid 二维图 与 uuid→位置 索引都用它（<= 0 会警告）")]
+    [SerializeField] int uuid = 1;
 
-    [Tooltip("先攻（回合管理器排序用）")]
-    public int speed = 10;
+    [Tooltip("先攻（回合排序用，大的先动）")]
+    public int initiative = 10;
 
     [Tooltip("每回合最多走几格；0 = 不限")]
     public int moveSteps;
 
-    [Tooltip("阶段一（获得目标点）用哪种实现")]
+    [Tooltip("移动管线类型（阶段一）：靠近 / 远离")]
     [SerializeField] TargetSourceType targetSourceType = TargetSourceType.ApproachNearestEnemy;
 
-    /// <summary>自动寻路组件（管线的装配对象）</summary>
+    [Header("管线")]
+    [Tooltip("地图管理器；留空则取场景里的第一个")]
+    public MapManager map;
+
+    /// <summary>自动寻路组件（移动管线的装配对象）</summary>
     public AutoPilot Pilot { get; private set; }
 
     /// <summary>移动组件</summary>
@@ -33,8 +40,28 @@ public class Entity : MonoBehaviour
     /// <summary>攻击管线组件，可能没有（没有就只移动不攻击）</summary>
     public Attacker Attacker { get; private set; }
 
+    // ---------- 对外数据（借 Entity 报价，所有者见注释） ----------
+
+    /// <summary>实体 id（Entity 自己持有）</summary>
+    public int Uuid => uuid;
+
+    /// <summary>当前生命值（Health 持有，这里转发）</summary>
+    public float Hp => Health != null ? Health.Current : 0f;
+
+    /// <summary>生命值上限（Health 持有，这里转发）</summary>
+    public float MaxHp => Health != null ? Health.maxHealth : 0f;
+
+    /// <summary>是否已阵亡（Health 持有，这里转发）</summary>
+    public bool IsDead => Health != null && Health.IsDead;
+
     /// <summary>自己的阵营；没有 Health 就当 0</summary>
     public int Team => Health != null ? Health.team : 0;
+
+    /// <summary>受到伤害：对外的唯一伤害入口，转发给生命值</summary>
+    public void TakeDamage(float amount)
+    {
+        if (Health != null) Health.TakeDamage(amount);
+    }
 
     /// <summary>向外暴露的枚举属性：外部改它就会立刻按新枚举重建阶段一</summary>
     public TargetSourceType SourceType
@@ -49,14 +76,41 @@ public class Entity : MonoBehaviour
 
     void Awake()
     {
-        Mover = GetComponent<ObjectMover>();
-        Pilot = GetComponent<AutoPilot>();
-        Health = GetComponent<Health>();
-        Attacker = GetComponent<Attacker>();
+        CacheComponents();
         if (map == null) map = FindObjectOfType<MapManager>();
+        if (uuid <= 0) Debug.LogWarning($"{name}: uuid 没配（<= 0），地图索引会用不了", this);
+
+        Init();     // 用场景里配好的数据装配
+    }
+
+    /// <summary>
+    /// 初始化。不传 data：用场景里配好的（Inspector 字段）装配；
+    /// 传了 data：先用 data 覆盖，再装配（管线按新类型重建、步数补满）。
+    /// </summary>
+    public void Init(EntityInitData data = null)
+    {
+        CacheComponents();
+
+        if (data != null)
+        {
+            uuid = data.uuid;
+            initiative = data.initiative;
+            moveSteps = data.moveSteps;
+            if (data.map != null) map = data.map;
+            targetSourceType = data.moveSource;
+            if (Attacker != null) Attacker.Type = data.attackType;
+        }
 
         Wire();
         ApplySteps();
+    }
+
+    void CacheComponents()
+    {
+        if (Mover == null) Mover = GetComponent<ObjectMover>();
+        if (Pilot == null) Pilot = GetComponent<AutoPilot>();
+        if (Health == null) Health = GetComponent<Health>();
+        if (Attacker == null) Attacker = GetComponent<Attacker>();
     }
 
     /// <summary>把每回合步数上限写给移动组件，并把剩余步数补满（改 moveSteps 后调它）</summary>
@@ -93,4 +147,30 @@ public class Entity : MonoBehaviour
     {
         return Attacker != null && Attacker.RunPipeline();
     }
+}
+
+/// <summary>
+/// Entity.Init 需要的数据：只装 Entity 自己持有的那部分（身份 / 先攻 / 回合步数 / 管线类型 / 地图）。
+/// 生命值与阵营归 Health 持有，所以不在这里。
+/// </summary>
+[System.Serializable]
+public class EntityInitData
+{
+    [Tooltip("实体唯一 id")]
+    public int uuid = 1;
+
+    [Tooltip("先攻（大的先动）")]
+    public int initiative = 10;
+
+    [Tooltip("每回合最多走几格；0 = 不限")]
+    public int moveSteps;
+
+    [Tooltip("地图管理器；不填就用 Entity 场景里配的 / 自己找")]
+    public MapManager map;
+
+    [Tooltip("移动管线类型（阶段一）：靠近 / 远离")]
+    public TargetSourceType moveSource = TargetSourceType.ApproachNearestEnemy;
+
+    [Tooltip("攻击管线类型：近战 / 远程")]
+    public Attacker.AttackType attackType = Attacker.AttackType.Melee;
 }

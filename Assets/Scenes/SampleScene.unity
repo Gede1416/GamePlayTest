@@ -2347,10 +2347,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 261e2f3423a142e887bea55152ffa5c3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  map: {fileID: 1263441937}
-  speed: 10
+  uuid: 1
+  initiative: 10
   moveSteps: 4
   targetSourceType: 0
+  map: {fileID: 1263441937}
 --- !u!114 &8100000000000501
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2363,10 +2364,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 261e2f3423a142e887bea55152ffa5c3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  map: {fileID: 1263441937}
-  speed: 10
+  uuid: 2
+  initiative: 10
   moveSteps: 3
   targetSourceType: 1
+  map: {fileID: 1263441937}
 --- !u!114 &8100000000000700
 MonoBehaviour:
   m_ObjectHideFlags: 0
