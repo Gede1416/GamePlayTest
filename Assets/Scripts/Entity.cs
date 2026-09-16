@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 
 /// <summary>
@@ -29,6 +30,9 @@ public class Entity : MonoBehaviour
     /// <summary>生命值组件，可能没有</summary>
     public Health Health { get; private set; }
 
+    /// <summary>攻击管线组件，可能没有（没有就只移动不攻击）</summary>
+    public Attacker Attacker { get; private set; }
+
     /// <summary>自己的阵营；没有 Health 就当 0</summary>
     public int Team => Health != null ? Health.team : 0;
 
@@ -48,6 +52,7 @@ public class Entity : MonoBehaviour
         Mover = GetComponent<ObjectMover>();
         Pilot = GetComponent<AutoPilot>();
         Health = GetComponent<Health>();
+        Attacker = GetComponent<Attacker>();
         if (map == null) map = FindObjectOfType<MapManager>();
 
         Wire();
@@ -68,10 +73,24 @@ public class Entity : MonoBehaviour
         PathPipelineFactory.Wire(Pilot, targetSourceType, map, transform, Team, Mover);
     }
 
-    /// <summary>轮到它行动：先补满步数，再按管线找目标走过去</summary>
-    public bool TakeTurn()
+    /// <summary>
+    /// 轮到它行动的简单回合操作：**攻击 -> 移动 -> 攻击**。
+    /// 移动是协程动画，所以这里是协程：等它走完再补第二次攻击（TurnManager 直接 yield 它）。
+    /// </summary>
+    public IEnumerator TakeTurnRoutine()
     {
-        ApplySteps();
-        return Pilot != null && Pilot.RunPipeline();
+        ApplySteps();                                        // 步数补满
+        Attacker?.TickTurn();                                // 技能冷却推进
+
+        AttackOnce();                                        // 攻击 1
+        if (Pilot != null) Pilot.RunPipeline();              // 移动（找目标走过去）
+        while (Pilot != null && Pilot.IsFollowing) yield return null;   // 等移动动画走完
+        AttackOnce();                                        // 攻击 2
+    }
+
+    /// <summary>打一次：没有攻击组件 / 前置条件不满足 / 范围内没目标都会返回 false</summary>
+    public bool AttackOnce()
+    {
+        return Attacker != null && Attacker.RunPipeline();
     }
 }

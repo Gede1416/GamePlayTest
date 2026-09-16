@@ -71,9 +71,7 @@ public class TurnManager : MonoBehaviour
                 CurrentActor = actor;
                 Debug.Log($"[TurnManager] 第 {CurrentRound} 回合，{actor.name} 行动（先攻 {actor.speed}）");
 
-                if (actor.TakeTurn() && actor.Pilot != null)   // 轮到它，自己按管线找目标走
-                    while (actor.Pilot.IsFollowing)
-                        yield return null;   // 等它走完再轮下一个
+                yield return actor.TakeTurnRoutine();   // 攻击 -> 移动 -> 攻击（内部会等移动走完）
 
                 if (turnDelay > 0f) yield return new WaitForSeconds(turnDelay);
             }
