@@ -1,8 +1,8 @@
+using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 
 /// <summary>
-/// 伤害数字：外观在预制体里做好（世界空间 Canvas + 一个 Text），这里只负责写数字、
+/// 伤害数字：外观在预制体里做好（世界空间 Canvas + 一个 TMP 文字），这里只负责写数字、
 /// 让它一边往上飘一边淡出，飘完自毁。
 /// 由 BattleUIManager 在被打实体的 UI 点位下实例化预制体后调 Init。
 /// 成员顺序：属性 → 生命周期 → 公开方法 → 私有方法（各组内按调用顺序）。
@@ -11,8 +11,8 @@ public class DamagePopup : MonoBehaviour
 {
     #region 属性
 
-    [Tooltip("数字文字（预制体里接好）")]
-    [SerializeField] Text label;
+    [Tooltip("数字文字（预制体里接好，TMP）")]
+    [SerializeField] TMP_Text label;
 
     [Tooltip("往上飘多高（世界单位）")]
     [SerializeField] float rise = 1f;

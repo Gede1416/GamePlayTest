@@ -1,11 +1,11 @@
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 
 /// <summary>
 /// 战斗界面：数据全从事件管线来——回合数（TurnChangedEvent）、伤害数字（DamageEvent）、
 /// 胜利队伍（BattleEndedEvent），血条在实体就绪（EntitySpawnedEvent）时给每个实体挂一条。
-/// HUD 是场景 Canvas 上的文字（直接引用），血条与伤害数字都是**预制体**——这里只负责加载、实例化、销毁，
+/// HUD 是场景 Canvas 上的 TMP 文字（直接引用），血条与伤害数字都是**预制体**——这里只负责加载、实例化、销毁，
 /// 不在代码里组装任何界面元素。
 /// 由 BattleManager 调 Init / Clear，自己不写 Awake。
 /// 成员顺序：属性 → 生命周期 → 公开方法 → 私有方法（各组内按调用顺序）。
@@ -14,11 +14,11 @@ public class BattleUIManager : MonoBehaviour
 {
     #region 属性
 
-    [Header("HUD（场景 Canvas 下的文字）")][Tooltip("回合数文字")]
-    [SerializeField] Text roundText;
+    [Header("HUD（场景 Canvas 下的 TMP 文字）")][Tooltip("回合数文字")]
+    [SerializeField] TMP_Text roundText;
 
     [Tooltip("战斗结果文字")]
-    [SerializeField] Text resultText;
+    [SerializeField] TMP_Text resultText;
 
     [Header("预制体路径（先按文件名走 Resources，编辑器里再按资源路径加载）")][Tooltip("血条预制体：实例化到实体的 UI 点位下")]
     [SerializeField] string healthBarPath = "Assets/prefab/HealthBar.prefab";
@@ -100,7 +100,7 @@ public class BattleUIManager : MonoBehaviour
         spawned.Add(go);
     }
 
-    static void SetText(Text text, string value)
+    static void SetText(TMP_Text text, string value)
     {
         if (text != null) text.text = value;
     }
