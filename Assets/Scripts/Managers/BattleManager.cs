@@ -6,11 +6,13 @@ using UnityEngine;
 /// 预制体路径在 Inspector 里配（mapPath / turnPath / entityPaths），加载出来的对象统一挂到 mapPos 下。
 /// 加载顺序：地图先就位（实体要靠它定位），再把实体列表接进地图、参战列表接进回合管理器，最后各自 Init。
 /// RebuildBattle() = 清掉当前加载的全部对象，重新加载初始化一遍。
+/// 成员顺序：属性 → 生命周期 → 公开方法 → 私有方法（各组内按调用顺序）。
 /// </summary>
 public class BattleManager : MonoBehaviour
 {
-    [Header("预制体路径（先按文件名走 Resources，编辑器里再按资源路径加载）")]
-    [Tooltip("地图预制体：里面挂着 MapManager 与各实体的初始位置列表")]
+    // ---------- 属性 ----------
+
+    [Header("预制体路径（先按文件名走 Resources，编辑器里再按资源路径加载）")][Tooltip("地图预制体：里面挂着 MapManager 与各实体的初始位置列表")]
     [SerializeField] string mapPath;
 
     [Tooltip("回合控制器预制体：里面有回合数 / 行动间隔 / autoStart")]
@@ -25,6 +27,12 @@ public class BattleManager : MonoBehaviour
     MapManager mapManager;
     TurnManager turnManager;
     List<Entity> entities;
+
+    // ---------- 生命周期 ----------
+
+    void Awake() => BuildBattle();      // 进播放就加载初始化一次，之后随时可以 RebuildBattle()
+
+    // ---------- 公开方法 ----------
 
     /// <summary>
     /// 加载 + 初始化整场战斗（开局与 RebuildBattle 都走它，开头先清场所以可以反复调）。
@@ -117,9 +125,7 @@ public class BattleManager : MonoBehaviour
         turnManager = null;
     }
 
-    // ---------- 私有 ----------
-
-    void Awake() => BuildBattle();      // 进播放就加载初始化一次，之后随时可以 RebuildBattle()
+    // ---------- 私有方法 ----------
 
     /// <summary>加载出来的对象统一挂到 mapPos 下（没配 mapPos 就放场景根）</summary>
     GameObject InstantiateAt(GameObject prefab)

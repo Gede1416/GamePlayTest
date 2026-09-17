@@ -40,12 +40,12 @@ public class CooldownCastCheck : ICastCheck, ICooldown
 {
     readonly int cooldown;
 
+    public int CooldownLeft { get; private set; }
+
     public CooldownCastCheck(int cooldown = 0)
     {
         this.cooldown = cooldown;
     }
-
-    public int CooldownLeft { get; private set; }
 
     public void StartCooldown() => CooldownLeft = cooldown;
 
@@ -99,6 +99,8 @@ public static class TargetPicker
 
         return true;
     }
+
+    // ---------- 私有方法 ----------
 
     static int Dist(MapManager map, Vector2Int from, Entity e)
     {

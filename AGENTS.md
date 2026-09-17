@@ -56,7 +56,12 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 ## 约定
 
 - 注释、Tooltip 用中文；字段名用英文。
-- **成员顺序**：公开成员在前、私有在后；公开部分按调用顺序排（数据/字段 → 对外门面属性 → 组件引用 → 行为方法），Unity 生命周期方法（Awake/Start/Update/OnDisable/OnDrawGizmosSelected…）与私有辅助函数放在最后。
+- **成员顺序**（每个类都照这个来，四段各自内部按调用顺序排）：
+  1. **类属性**：字段与属性（序列化字段 → 常量 → 运行期状态字段 → 属性）
+  2. **生命周期**：`Awake` / `Start` / `OnDisable` / `OnDrawGizmosSelected` 等 Unity 回调
+  3. **公开方法**
+  4. **私有方法**（含 `[ContextMenu]` 的调试方法）
+  纯数据类（`EntityInitData` / `TurnInitData`）和静态工厂只有属性/方法，按同样的先后即可。
 - 只写被要求的功能：不加接口/工厂/配置项，不加脚手架。故意砍掉的东西在回复里说明"跳过了 X，需要 Y 时再加"，不预先实现。
 - 用 `#` 对 `Vector2Int` 的格子坐标：`.x` = 列（世界 x 方向），`.y` = 行（世界 z 方向），**不是世界高度**。
 - 世界坐标用 `Vector3`，地面用 `Vector2` 存 `(x, z)`；不要用 Vector2 直接赋给 `transform.position`（会把 y/z 清 0）。
@@ -64,8 +69,9 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 - **地图数据**：格子→uuid 二维图与 uuid→位置/实体 字典都由 `MapManager` 维护，外部只读查询（`UuidAt` / `EntityAt` / `EntitiesAt` / `EntityOf` / `TryGetCell`）；要改只能走 `TryMove` / `CancelMove` / `SyncOccupied`。
 - **数据所有权**：一份数据只有一个所有者。身份(uuid) / 先攻 / 回合步数 / 管线类型 归 `Entity`；生命值 + 阵营归 `Health`；本回合可走步数（`AutoPilot.ApplySteps`，只有"远离"挑落点用）、动画中（`AutoPilot.IsFollowing`）、冷却剩余（`Attacker`）属于各自组件的运行期状态。`Entity` 是对外唯一门面（`Hp` / `MaxHp` / `IsDead` / `Team` / `TakeDamage()` 转发），**不要把组件自己的属性搬进 Entity**（会变成两份真相 + 组件不能单独工作）。
 - `Health` 是 2D/3D 无关的，其余脚本的维度假设见上表。
-- 私有字段**不加下划线前缀**（`routine` / `cells` / `mapManager`，不是 `_routine`）；序列化字段放数据区，纯运行期状态放文件末尾的私有段。
-- 每个类里用 `// ---------- 名称 ----------` 分段（如 `// ---------- 私有 ----------`），私有字段、Unity 生命周期方法与私有辅助函数统一收在最后那一段。
+- 私有字段**不加下划线前缀**（`routine` / `cells` / `mapManager`，不是 `_routine`）。
+- **属性标签横排一行**：同一个字段上的多个特性写在同一行，例如 `[Tooltip("攻击类型：近战 范围 1 / 远程 范围 3，都是 1 个目标")][SerializeField] AttackType attackType = AttackType.Melee;`（`[Header(...)]` 也照样接在同一行）。
+- 每个类里用 `// ---------- 名称 ----------` 标出四段（`属性` / `生命周期` / `公开方法` / `私有方法`），大段内部的语义小标题（如 `// ---------- 查询 ----------`）保留。
 - 需要可视化的逻辑（如网格划分）用 `OnDrawGizmosSelected` 画出来核对，不写单元测试。
 
 ## 已知缺口（用户明确跳过的）
@@ -94,7 +100,7 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 - **额外清理** ✅ 删掉旧技能系统的残留：`SkillManager`、碰触体 `Attack` 与 4 个 `skill_*` 子物体（攻击只剩攻击管线一条路）；预制体当时由 `BattlePrefabExporter` 重新导出（该工具后来随场景改造成预制体加载而删除）
 - **额外清理** ✅ 删掉 `ObjectMover` 组件：移动逻辑坍缩进阶段三 `MoverPathExecutor.Run()`（直接改实体坐标），速度改挂 `AutoPilot.speed`，本回合步数留在 `AutoPilot.ApplySteps` 供"远离"当预算，`Entity.Mover` 一并移除
 - **额外清理** ✅ 新增 `BattleManager`（战场统一管理）：把「加载 → 初始化」包成 `BuildBattle()`，另加 `ClearBattle()` 清场、`RebuildBattle()` = 清场 + 重新加载；`Entity.Init` 现在把地图也发给 `Attacker`
-- **规范化** ✅ 全部脚本按「公开在前、私有在后、生命周期与私有辅助收尾」重排（`Health` / `TurnManager` / `MapManager` / `Attacker` / `TargetSources` / `BattleManager`），私有字段统一去掉下划线前缀，序列化字段补中文 Tooltip；删掉过期的 `BattlePrefabExporter`
+- **规范化** ✅ 全部脚本按用户给的顺序重排：**属性 → 生命周期 → 公开方法 → 私有方法**（各组内按调用顺序），属性标签横排一行；私有字段统一去掉下划线前缀，序列化字段补中文 Tooltip；删掉过期的 `BattlePrefabExporter`
 - 未做：Map 配置对象（用户说暂时不用）
 
 ## 版本管理

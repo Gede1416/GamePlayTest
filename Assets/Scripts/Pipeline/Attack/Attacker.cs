@@ -5,12 +5,14 @@ using UnityEngine;
 /// 攻击管线（挂在实体上）：阶段一 技能释放判断 -> 阶段二 目标获取 -> 阶段三 技能释放。
 /// 三段各自独立（不依赖技能对象），装配交给 AttackPipelineFactory（按 AttackType 枚举造），
 /// 本组件只负责驱动流程。
+/// 成员顺序：属性 → 生命周期 → 公开方法 → 私有方法（各组内按调用顺序）。
 /// </summary>
 [RequireComponent(typeof(Entity))]
 public class Attacker : MonoBehaviour
 {
-    [Tooltip("攻击类型：近战 范围 1 / 远程 范围 3，都是 1 个目标")]
-    [SerializeField] AttackType attackType = AttackType.Melee;
+    // ---------- 属性 ----------
+
+    [Tooltip("攻击类型：近战 范围 1 / 远程 范围 3，都是 1 个目标")][SerializeField] AttackType attackType = AttackType.Melee;
 
     [Tooltip("每次命中的伤害（给阶段三）")]
     public float damage = 10f;
@@ -21,6 +23,11 @@ public class Attacker : MonoBehaviour
     [Tooltip("地图管理器；留空则取场景里的第一个")]
     public MapManager map;
 
+    /// <summary>最近一次目标获取选出来的目标</summary>
+    public readonly List<Entity> targets = new();
+
+    Entity self;
+
     /// <summary>阶段一：技能释放判断</summary>
     public ICastCheck CastCheck { get; set; }
 
@@ -29,9 +36,6 @@ public class Attacker : MonoBehaviour
 
     /// <summary>阶段三：技能释放</summary>
     public ISkillCaster Caster { get; set; }
-
-    /// <summary>最近一次目标获取选出来的目标</summary>
-    public readonly List<Entity> targets = new();
 
     /// <summary>向外暴露的攻击类型：外部改它就会按新类型重建三段</summary>
     public AttackType Type
@@ -43,6 +47,18 @@ public class Attacker : MonoBehaviour
             Build();
         }
     }
+
+    // ---------- 生命周期 ----------
+
+    void Awake()
+    {
+        self = GetComponent<Entity>();
+        if (map == null) map = FindObjectOfType<MapManager>();
+
+        Build();
+    }
+
+    // ---------- 公开方法 ----------
 
     /// <summary>按当前攻击类型装配三段（工厂造接口，这里只负责装上；也可以外部塞别的实现进来）</summary>
     public void Build()
@@ -69,17 +85,7 @@ public class Attacker : MonoBehaviour
         (CastCheck as ICooldown)?.TickTurn();
     }
 
-    // ---------- 私有 ----------
-
-    Entity self;
-
-    void Awake()
-    {
-        self = GetComponent<Entity>();
-        if (map == null) map = FindObjectOfType<MapManager>();
-
-        Build();
-    }
+    // ---------- 私有方法 ----------
 
     [ContextMenu("跑一次攻击管线")]
     void RunMenu()

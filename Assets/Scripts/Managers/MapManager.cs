@@ -6,26 +6,17 @@ using UnityEngine;
 /// 按地图 GameObject 的长宽（x / z）和单位距离划分 XZ 网格。
 /// 地图数据有两份索引：**格子→实体 uuid 的二维图**（cells），以及 **uuid→二维位置 / uuid→实体** 的字典；
 /// 占用判定、坐标换算、以后寻路都从这里问（外部只读，改数据只走 TryMove / CancelMove / SyncOccupied）。
+/// 成员顺序：属性 → 生命周期 → 公开方法 → 私有方法（各组内按调用顺序）。
 /// </summary>
 public class MapManager : MonoBehaviour
 {
+    // ---------- 属性 ----------
+
     [Tooltip("地图物体：取其 Renderer 包围盒的 x / z 尺寸；没有 Renderer 则用它的缩放")]
     public GameObject map;
 
     [Tooltip("单位距离：每个格子的边长")]
     public float cellSize = 1f;
-
-    public int Cols { get; private set; }        // x 方向格子数
-    public int Rows { get; private set; }        // z 方向格子数
-    public Vector2 MinXZ { get; private set; }   // 网格角点在地面的坐标 (x, z)
-    public float GridY { get; private set; }     // 网格所在高度 = 地图顶面 y
-
-    [Header("实体")]
-    [Tooltip("实体列表（顺序与初始位置列表一一对应）")]
-    public List<GameObject> entities = new();
-
-    [Tooltip("初始位置列表（格子坐标），与实体列表一一对应")]
-    public List<Vector2Int> spawnPoints = new();
 
     /// <summary>格子空着时的 uuid</summary>
     public const int Empty = 0;
@@ -33,10 +24,58 @@ public class MapManager : MonoBehaviour
     /// <summary>格子被占住、但占用者没有登记 uuid（没挂 Entity 或 uuid <= 0）</summary>
     public const int Unknown = -1;
 
-    // ---------- 地图数据 ----------
+    [Header("实体")][Tooltip("实体列表（顺序与初始位置列表一一对应）")]
+    public List<GameObject> entities = new();
+
+    [Tooltip("初始位置列表（格子坐标），与实体列表一一对应")]
+    public List<Vector2Int> spawnPoints = new();
+
     int[,] cells;                                              // 二维图：格子 -> 实体 uuid
     readonly Dictionary<int, Vector2Int> positions = new();    // uuid -> 二维位置
     readonly Dictionary<int, Entity> byUuid = new();           // uuid -> 实体
+
+    static readonly Vector2Int[] Dirs = { Vector2Int.right, Vector2Int.left, Vector2Int.up, Vector2Int.down };
+
+    /// <summary>x 方向格子数</summary>
+    public int Cols { get; private set; }
+
+    /// <summary>z 方向格子数</summary>
+    public int Rows { get; private set; }
+
+    /// <summary>网格角点在地面的坐标 (x, z)</summary>
+    public Vector2 MinXZ { get; private set; }
+
+    /// <summary>网格所在高度 = 地图顶面 y</summary>
+    public float GridY { get; private set; }
+
+    // ---------- 生命周期 ----------
+
+    void Awake() => Build();
+
+    void Start() => ResetEntities();
+
+    // 选中物体时在 Scene 视图画出格子线 + 被占用的格子；不需要可整段删掉
+    void OnDrawGizmosSelected()
+    {
+        if (map == null || cellSize <= 0f) return;
+
+        Bounds b = GetBounds(map);
+        float y = b.max.y + 0.01f;
+        Gizmos.color = Color.green;
+        for (float x = b.min.x; x <= b.max.x + 0.001f; x += cellSize)
+            Gizmos.DrawLine(new Vector3(x, y, b.min.z), new Vector3(x, y, b.max.z));
+        for (float z = b.min.z; z <= b.max.z + 0.001f; z += cellSize)
+            Gizmos.DrawLine(new Vector3(b.min.x, y, z), new Vector3(b.max.x, y, z));
+
+        if (cells == null) return;      // 地图数据运行中才有
+        Gizmos.color = Color.red;
+        for (int x = 0; x < Cols; x++)
+            for (int z = 0; z < Rows; z++)
+                if (cells[x, z] != Empty)
+                    Gizmos.DrawWireCube(CellToWorld(x, z), new Vector3(cellSize, 0.02f, cellSize));
+    }
+
+    // ---------- 公开方法 ----------
 
     /// <summary>重新构建网格并放好实体（外部想从头来一遍时调它）</summary>
     public void Init()
@@ -191,6 +230,8 @@ public class MapManager : MonoBehaviour
                               Mathf.FloorToInt((pos.z - MinXZ.y) / cellSize));
     }
 
+    // ---------- 移动裁决 ----------
+
     /// <summary>
     /// 移动指令裁决：从 from 沿 step 走一格。合法（界内且落点未被占用）就把地图数据从 from 移到落点
     /// （二维图 + uuid→位置），并用 to 返回落点格；不合法返回 false 且不动任何数据。
@@ -260,7 +301,9 @@ public class MapManager : MonoBehaviour
         return false;                            // 走不到
     }
 
-    /// <summary>自检：随便挑两个空格走一遍寻路，校验路径连续、可走、终点对得上（右键组件菜单可跑）</summary>
+    // ---------- 自检（右键组件菜单可跑） ----------
+
+    /// <summary>自检：随便挑两个空格走一遍寻路，校验路径连续、可走、终点对得上</summary>
     [ContextMenu("自检：寻路")]
     public void SelfCheckPath()
     {
@@ -295,7 +338,7 @@ public class MapManager : MonoBehaviour
             : $"[MapManager] 寻路自检不通过：终点是 {prev}，应该是 {to}", this);
     }
 
-    /// <summary>自检：二维图与 uuid→位置/实体 两份索引是否一致（右键组件菜单可跑）</summary>
+    /// <summary>自检：二维图与 uuid→位置/实体 两份索引是否一致</summary>
     [ContextMenu("自检：地图数据一致性")]
     public void SelfCheck()
     {
@@ -325,39 +368,12 @@ public class MapManager : MonoBehaviour
             : $"[MapManager] 自检不通过：占格 {occupied}，登记 {known}，positions {positions.Count}，byUuid {byUuid.Count}", this);
     }
 
-    // ---------- 私有 ----------
-
-    static readonly Vector2Int[] Dirs = { Vector2Int.right, Vector2Int.left, Vector2Int.up, Vector2Int.down };
-
-    void Awake() => Build();
-
-    void Start() => ResetEntities();
+    // ---------- 私有方法 ----------
 
     /// <summary>物体的地面包围盒：优先取 Renderer，没有就退化成位置 + 缩放</summary>
     static Bounds GetBounds(GameObject go)
     {
         var r = go.GetComponentInChildren<Renderer>();
         return r != null ? r.bounds : new Bounds(go.transform.position, go.transform.lossyScale);
-    }
-
-    // 选中物体时在 Scene 视图画出格子线 + 被占用的格子；不需要可整段删掉
-    void OnDrawGizmosSelected()
-    {
-        if (map == null || cellSize <= 0f) return;
-
-        Bounds b = GetBounds(map);
-        float y = b.max.y + 0.01f;
-        Gizmos.color = Color.green;
-        for (float x = b.min.x; x <= b.max.x + 0.001f; x += cellSize)
-            Gizmos.DrawLine(new Vector3(x, y, b.min.z), new Vector3(x, y, b.max.z));
-        for (float z = b.min.z; z <= b.max.z + 0.001f; z += cellSize)
-            Gizmos.DrawLine(new Vector3(b.min.x, y, z), new Vector3(b.max.x, y, z));
-
-        if (cells == null) return;      // 地图数据运行中才有
-        Gizmos.color = Color.red;
-        for (int x = 0; x < Cols; x++)
-            for (int z = 0; z < Rows; z++)
-                if (cells[x, z] != Empty)
-                    Gizmos.DrawWireCube(CellToWorld(x, z), new Vector3(cellSize, 0.02f, cellSize));
     }
 }

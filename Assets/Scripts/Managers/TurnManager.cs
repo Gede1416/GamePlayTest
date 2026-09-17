@@ -20,11 +20,13 @@ public enum TurnState
 /// 回合管理器。数据结构：
 /// 战斗实体列表 actors / 行动栈 ActionStack（每回合按先攻重建）/ 回合状态 State。
 /// 每回合把实体按先攻排进行动栈，逐个出栈行动（yield return Entity.TakeTurnRoutine()），跑满给定回合数结束。
+/// 成员顺序：属性 → 生命周期 → 公开方法 → 私有方法（各组内按调用顺序）。
 /// </summary>
 public class TurnManager : MonoBehaviour
 {
-    [Header("数据")]
-    [Tooltip("参战实体列表")]
+    // ---------- 属性 ----------
+
+    [Header("数据")][Tooltip("参战实体列表")]
     public List<Entity> actors = new List<Entity>();
 
     [Tooltip("给定回合数：跑满这个回合数就结束")]
@@ -38,6 +40,9 @@ public class TurnManager : MonoBehaviour
 
     /// <summary>行动栈：本回合的行动顺序（按先攻从高到低，每回合开始时重建）</summary>
     public readonly List<Entity> ActionStack = new();
+
+    int cursor;             // 行动栈里下一位
+    Coroutine routine;
 
     /// <summary>当前第几回合（从 1 开始；没开打是 0）</summary>
     public int CurrentRound { get; private set; }
@@ -53,6 +58,15 @@ public class TurnManager : MonoBehaviour
 
     /// <summary>行动栈里还剩几个没行动（含已被跳过但要到出栈时才判断的）</summary>
     public int StackLeft => Mathf.Max(0, ActionStack.Count - cursor);
+
+    // ---------- 生命周期 ----------
+
+    void Start()
+    {
+        if (autoStart) StartBattle();
+    }
+
+    // ---------- 公开方法 ----------
 
     /// <summary>
     /// 初始化：不传 data 就用场景里配好的（Inspector 字段）；
@@ -104,15 +118,7 @@ public class TurnManager : MonoBehaviour
         return null;
     }
 
-    // ---------- 私有 ----------
-
-    int cursor;             // 行动栈里下一位
-    Coroutine routine;
-
-    void Start()
-    {
-        if (autoStart) StartBattle();
-    }
+    // ---------- 私有方法 ----------
 
     IEnumerator Run()
     {

@@ -8,12 +8,13 @@ using UnityEngine;
 /// 装配在本组件内完成（Build() 调 PathPipelineFactory，阶段三自己挪位置，不再有独立的移动组件）；
 /// 本回合可走步数（ApplySteps）存在这里，只有"远离"阶段一挑落点时读它。
 /// 和攻击管线的 Attacker 一个套路。只读地图数据（CanEnter），占用数据由 MapManager 维护。
-/// 成员顺序：公开字段/属性/方法在前（按调用顺序：装配 → 跑管线 → 移动 → 停 → 步数），私有与 Unity 生命周期在后。
+/// 成员顺序：属性 → 生命周期 → 公开方法 → 私有方法（各组内按调用顺序）。
 /// </summary>
 public class AutoPilot : MonoBehaviour
 {
-    [Tooltip("移动管线类型（阶段一）：靠近 / 远离")]
-    [SerializeField] TargetSourceType targetSourceType = TargetSourceType.ApproachNearestEnemy;
+    // ---------- 属性 ----------
+
+    [Tooltip("移动管线类型（阶段一）：靠近 / 远离")][SerializeField] TargetSourceType targetSourceType = TargetSourceType.ApproachNearestEnemy;
 
     [Tooltip("地图管理器；留空则取场景里的第一个")]
     public MapManager map;
@@ -23,6 +24,10 @@ public class AutoPilot : MonoBehaviour
 
     [Tooltip("当前路径（格子，不含起点）")]
     public readonly List<Vector2Int> path = new();
+
+    Coroutine routine;
+    Health health;
+    int stepsThisTurn;      // 本回合可走步数（0 = 不限）
 
     /// <summary>阶段一：获得目标点</summary>
     public ITargetSource TargetSource { get; set; }
@@ -49,6 +54,34 @@ public class AutoPilot : MonoBehaviour
             Build();
         }
     }
+
+    // ---------- 生命周期 ----------
+
+    void Awake()
+    {
+        if (map == null) map = FindObjectOfType<MapManager>();
+        health = GetComponent<Health>();
+
+        Build();
+    }
+
+    void OnDisable() => Stop();
+
+    // 选中时画出当前路径
+    void OnDrawGizmosSelected()
+    {
+        if (map == null || path.Count == 0) return;
+
+        Gizmos.color = Color.yellow;
+        var from = map.WorldToCell(transform.position);
+        foreach (var c in path)
+        {
+            Gizmos.DrawLine(map.CellToWorld(from.x, from.y), map.CellToWorld(c.x, c.y));
+            from = c;
+        }
+    }
+
+    // ---------- 公开方法 ----------
 
     /// <summary>按当前枚举装配三段（工厂造接口，这里只负责装上；也可以外部塞别的实现进来）</summary>
     public void Build()
@@ -98,21 +131,7 @@ public class AutoPilot : MonoBehaviour
     /// <summary>记下本回合可走步数（0 = 不限），Entity 开局与每回合开始时调它</summary>
     public void ApplySteps(int steps) => stepsThisTurn = steps;
 
-    // ---------- 私有 ----------
-
-    Coroutine routine;
-    Health health;
-    int stepsThisTurn;      // 本回合可走步数（0 = 不限）
-
-    void Awake()
-    {
-        if (map == null) map = FindObjectOfType<MapManager>();
-        health = GetComponent<Health>();
-
-        Build();
-    }
-
-    void OnDisable() => Stop();
+    // ---------- 私有方法 ----------
 
     [ContextMenu("跑一次管线")]
     void RunPipelineMenu() => RunPipeline();
@@ -122,19 +141,5 @@ public class AutoPilot : MonoBehaviour
     {
         yield return Executor.Run(path);
         routine = null;
-    }
-
-    // 选中时画出当前路径
-    void OnDrawGizmosSelected()
-    {
-        if (map == null || path.Count == 0) return;
-
-        Gizmos.color = Color.yellow;
-        var from = map.WorldToCell(transform.position);
-        foreach (var c in path)
-        {
-            Gizmos.DrawLine(map.CellToWorld(from.x, from.y), map.CellToWorld(c.x, c.y));
-            from = c;
-        }
     }
 }

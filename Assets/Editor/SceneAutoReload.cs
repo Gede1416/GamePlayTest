@@ -24,17 +24,17 @@ public static class SceneAutoReload
     static string lastPath;               // 盯着哪个场景
     static DateTime lastWrite;            // 上次看到的磁盘写入时间
 
+    static bool Enabled
+    {
+        get => EditorPrefs.GetBool(PrefKey, true);
+        set => EditorPrefs.SetBool(PrefKey, value);
+    }
+
     static SceneAutoReload()
     {
         if (hooked) return;               // 关了域重载时 update 会重复挂
         hooked = true;
         EditorApplication.update += Tick;
-    }
-
-    static bool Enabled
-    {
-        get => EditorPrefs.GetBool(PrefKey, true);
-        set => EditorPrefs.SetBool(PrefKey, value);
     }
 
     [MenuItem(MenuPath, false, 100)]

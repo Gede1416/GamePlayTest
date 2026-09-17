@@ -6,14 +6,14 @@ using UnityEngine;
 /// 数据所有权：身份(uuid)、先攻、回合步数、管线引用由 Entity 自己持有；
 /// 生命值与阵营由 Health 持有（这里只转发）；"技能"由管线组件承担
 /// （移动管线 AutoPilot + 攻击管线 Attacker），不另存技能数据。
-/// 成员顺序约定：公开成员在前（按调用顺序：数据 → 对外门面 → 组件引用 → 行为），
-/// 私有成员与 Unity 生命周期方法在后。
+/// 成员顺序：属性 → 生命周期 → 公开方法 → 私有方法（各组内按调用顺序）。
 /// </summary>
 [RequireComponent(typeof(AutoPilot))]
 public class Entity : MonoBehaviour
 {
-    [Header("数据")]
-    [Tooltip("实体唯一 id：地图的 格子→uuid 二维图 与 uuid→位置 索引都用它（<= 0 会警告）")]
+    // ---------- 属性 ----------
+
+    [Header("数据")][Tooltip("实体唯一 id：地图的 格子→uuid 二维图 与 uuid→位置 索引都用它（<= 0 会警告）")]
     [SerializeField] int uuid = 1;
 
     [Tooltip("先攻（回合排序用，大的先动）")]
@@ -22,11 +22,8 @@ public class Entity : MonoBehaviour
     [Tooltip("每回合最多走几格；0 = 不限（由 AutoPilot.ApplySteps 记下来，只有\"远离\"阶段一挑落点时读它）")]
     public int moveSteps;
 
-    [Header("管线")]
-    [Tooltip("地图管理器；留空则取场景里的第一个")]
+    [Header("管线")][Tooltip("地图管理器；留空则取场景里的第一个")]
     public MapManager map;
-
-    // ---------- 对外数据（借 Entity 报价，所有者见注释） ----------
 
     /// <summary>实体 id（Entity 自己持有）</summary>
     public int Uuid => uuid;
@@ -43,21 +40,6 @@ public class Entity : MonoBehaviour
     /// <summary>自己的阵营；没有 Health 就当 0</summary>
     public int Team => Health != null ? Health.team : 0;
 
-    /// <summary>受到伤害：对外的唯一伤害入口，转发给生命值</summary>
-    public void TakeDamage(float amount)
-    {
-        if (Health != null) Health.TakeDamage(amount);
-    }
-
-    /// <summary>移动管线类型：数据归 AutoPilot，这里只是转发（改它会重建移动管线阶段一）</summary>
-    public TargetSourceType SourceType
-    {
-        get => Pilot != null ? Pilot.SourceType : TargetSourceType.ApproachNearestEnemy;
-        set { if (Pilot != null) Pilot.SourceType = value; }
-    }
-
-    // ---------- 组件引用 ----------
-
     /// <summary>自动寻路组件（移动管线的装配对象，阶段三自己控制位置）</summary>
     public AutoPilot Pilot { get; private set; }
 
@@ -67,7 +49,25 @@ public class Entity : MonoBehaviour
     /// <summary>攻击管线组件，可能没有（没有就只移动不攻击）</summary>
     public Attacker Attacker { get; private set; }
 
-    // ---------- 行为 ----------
+    /// <summary>移动管线类型：数据归 AutoPilot，这里只是转发（改它会重建移动管线阶段一）</summary>
+    public TargetSourceType SourceType
+    {
+        get => Pilot != null ? Pilot.SourceType : TargetSourceType.ApproachNearestEnemy;
+        set { if (Pilot != null) Pilot.SourceType = value; }
+    }
+
+    // ---------- 生命周期 ----------
+
+    void Awake()
+    {
+        CacheComponents();
+        if (map == null) map = FindObjectOfType<MapManager>();
+        if (uuid <= 0) Debug.LogWarning($"{name}: uuid 没配（<= 0），地图索引会用不了", this);
+
+        Init();     // 用场景里配好的数据装配
+    }
+
+    // ---------- 公开方法 ----------
 
     /// <summary>
     /// 初始化。不传 data：用场景里配好的（Inspector 字段）装配；
@@ -102,6 +102,12 @@ public class Entity : MonoBehaviour
         }
     }
 
+    /// <summary>受到伤害：对外的唯一伤害入口，转发给生命值</summary>
+    public void TakeDamage(float amount)
+    {
+        if (Health != null) Health.TakeDamage(amount);
+    }
+
     /// <summary>
     /// 轮到它行动的简单回合操作：**攻击 -> 移动 -> 攻击**。
     /// 移动是协程动画，所以这里是协程：等它走完再补第二次攻击（TurnManager 直接 yield 它）。
@@ -117,16 +123,7 @@ public class Entity : MonoBehaviour
         Attacker?.RunPipeline();                                 // 攻击 2
     }
 
-    // ---------- 私有 ----------
-
-    void Awake()
-    {
-        CacheComponents();
-        if (map == null) map = FindObjectOfType<MapManager>();
-        if (uuid <= 0) Debug.LogWarning($"{name}: uuid 没配（<= 0），地图索引会用不了", this);
-
-        Init();     // 用场景里配好的数据装配
-    }
+    // ---------- 私有方法 ----------
 
     void CacheComponents()
     {
