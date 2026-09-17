@@ -120,6 +120,14 @@ public class Entity : MonoBehaviour
         Attacker?.RunPipeline();                                 // 攻击 2
     }
 
+    /// <summary>清理：把清理发给身上的组件（Attacker → AutoPilot → Health，与初始化相反的顺序），由 BattleManager 统一调</summary>
+    public void Clear()
+    {
+        if (Attacker != null) Attacker.Clear();
+        if (Pilot != null) Pilot.Clear();
+        if (Health != null) Health.Clear();
+    }
+
     #endregion
 
     #region 私有方法

@@ -27,6 +27,9 @@ public class Health : MonoBehaviour
     /// <summary>初始化：由 Entity.Init 调用（组件自己不靠 Awake 干活），把当前值补满</summary>
     public void Init() => Current = maxHealth;
 
+    /// <summary>清理：生命值回到未初始化状态（由 Entity.Clear 调，下次 Init 会重新补满）</summary>
+    public void Clear() => Current = 0f;
+
     /// <summary>受到伤害：扣到 0 为止；死了就 SetActive(false)，伤害只从 Entity.TakeDamage 进来</summary>
     public void TakeDamage(float amount)
     {

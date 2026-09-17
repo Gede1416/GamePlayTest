@@ -77,20 +77,25 @@ public class TurnManager : MonoBehaviour
         turnDelay = data.turnDelay;
     }
 
-    /// <summary>开始回合（会先停掉正在跑的那局，回合数从头数）</summary>
+    /// <summary>开始回合：只管开——要重开先让 BattleManager 清一次（避免协程叠着跑）</summary>
     public void StartBattle()
     {
-        StopBattle();
+        if (routine != null) return;
         State = TurnState.Running;
         routine = StartCoroutine(Run());
     }
 
-    /// <summary>停手：状态回 Idle，回合数与行动栈保持原样便于查看</summary>
-    public void StopBattle()
+    /// <summary>清理：停协程 + 清空行动栈与参战列表 + 状态归零（由 BattleManager.ClearBattle 调，本组件自己不负责停）</summary>
+    public void Clear()
     {
         if (routine != null) StopCoroutine(routine);
         routine = null;
+
         CurrentActor = null;
+        CurrentRound = 0;
+        cursor = 0;
+        ActionStack.Clear();
+        actors.Clear();
         State = TurnState.Idle;
     }
 

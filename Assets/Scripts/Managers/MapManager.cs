@@ -87,6 +87,15 @@ public class MapManager : MonoBehaviour
         ResetEntities();
     }
 
+    /// <summary>清理：放掉地图数据与实体列表（由 BattleManager.ClearBattle 调；spawnPoints 是配置，保留）</summary>
+    public void Clear()
+    {
+        cells = null;
+        positions.Clear();
+        byUuid.Clear();
+        entities.Clear();
+    }
+
     public void Build()
     {
         if (map == null || cellSize <= 0f) return;

@@ -84,6 +84,16 @@ public class Attacker : MonoBehaviour
         (CastCheck as ICooldown)?.TickTurn();
     }
 
+    /// <summary>清理：清空上次选出的目标并放开三段引用（由 Entity.Clear 调）</summary>
+    public void Clear()
+    {
+        targets.Clear();
+        CastCheck = null;
+        TargetFinder = null;
+        Caster = null;
+        self = null;
+    }
+
     #endregion
 
     #region 私有方法

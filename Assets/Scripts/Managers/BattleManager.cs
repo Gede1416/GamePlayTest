@@ -61,10 +61,17 @@ public class BattleManager : MonoBehaviour
     /// <summary>清场重来：清掉当前加载的全部对象，再加载初始化一遍</summary>
     public void RebuildBattle() => BuildBattle();
 
-    /// <summary>1. 清理资源：先让回合停手，再销毁加载出来的地图 / 实体 / 回合控制器并清缓存</summary>
+    /// <summary>
+    /// 1. 清理资源：按 回合 → 实体 → 地图 的顺序调各组件的清理接口（清理只由这里发起），
+    /// 再销毁加载出来的对象并清缓存。
+    /// </summary>
     public void ClearBattle()
     {
-        if (turnManager != null) turnManager.StopBattle();
+        if (turnManager != null) turnManager.Clear();           // 先让回合停手
+        if (entities != null)
+            foreach (var entity in entities)
+                if (entity != null) entity.Clear();             // 再让实体转发给身上的组件
+        if (mapManager != null) mapManager.Clear();             // 最后放掉地图数据
 
         if (mapManager != null) Destroy(mapManager.gameObject);
         if (turnManager != null) Destroy(turnManager.gameObject);

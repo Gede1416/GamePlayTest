@@ -59,7 +59,7 @@ public class AutoPilot : MonoBehaviour
 
     #region 生命周期
 
-    void OnDisable() => Stop();
+    void OnDisable() => Clear();
 
     // 选中时画出当前路径
     void OnDrawGizmosSelected()
@@ -102,7 +102,7 @@ public class AutoPilot : MonoBehaviour
     /// <summary>阶段二 + 阶段三：指定目标格，构建路径并出发</summary>
     public bool MoveTo(Vector2Int target)
     {
-        Stop();
+        Clear();                                            // 先清理上一次的移动
         if (map == null || Planner == null || Executor == null) return false;
 
         var start = map.WorldToCell(transform.position);
@@ -118,8 +118,8 @@ public class AutoPilot : MonoBehaviour
         return map != null && MoveTo(map.WorldToCell(target));
     }
 
-    /// <summary>停下并清空路径</summary>
-    public void Stop()
+    /// <summary>清理：停下正在走的协程，让地图数据跟坐标对齐，并清空路径（由 Entity.Clear 调）</summary>
+    public void Clear()
     {
         if (routine != null)
         {
