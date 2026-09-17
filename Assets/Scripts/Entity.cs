@@ -9,7 +9,6 @@ using UnityEngine;
 /// 成员顺序约定：公开成员在前（按调用顺序：数据 → 对外门面 → 组件引用 → 行为），
 /// 私有成员与 Unity 生命周期方法在后。
 /// </summary>
-[RequireComponent(typeof(ObjectMover))]
 [RequireComponent(typeof(AutoPilot))]
 public class Entity : MonoBehaviour
 {
@@ -20,7 +19,7 @@ public class Entity : MonoBehaviour
     [Tooltip("先攻（回合排序用，大的先动）")]
     public int initiative = 10;
 
-    [Tooltip("每回合最多走几格；0 = 不限（由 AutoPilot.ApplySteps 写进移动组件）")]
+    [Tooltip("每回合最多走几格；0 = 不限（由 AutoPilot.ApplySteps 记下来，只有\"远离\"阶段一挑落点时读它）")]
     public int moveSteps;
 
     [Header("管线")]
@@ -59,11 +58,8 @@ public class Entity : MonoBehaviour
 
     // ---------- 组件引用 ----------
 
-    /// <summary>自动寻路组件（移动管线的装配对象）</summary>
+    /// <summary>自动寻路组件（移动管线的装配对象，阶段三自己控制位置）</summary>
     public AutoPilot Pilot { get; private set; }
-
-    /// <summary>移动组件</summary>
-    public ObjectMover Mover { get; private set; }
 
     /// <summary>生命值组件，可能没有</summary>
     public Health Health { get; private set; }
@@ -128,7 +124,6 @@ public class Entity : MonoBehaviour
 
     void CacheComponents()
     {
-        if (Mover == null) Mover = GetComponent<ObjectMover>();
         if (Pilot == null) Pilot = GetComponent<AutoPilot>();
         if (Health == null) Health = GetComponent<Health>();
         if (Attacker == null) Attacker = GetComponent<Attacker>();

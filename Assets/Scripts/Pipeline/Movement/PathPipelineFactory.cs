@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 /// <summary>阶段一（获得目标点）可选哪几种实现——工厂按这个枚举造接口，Inspector 里直接选。</summary>
@@ -16,13 +17,13 @@ public enum TargetSourceType
 /// </summary>
 public static class PathPipelineFactory
 {
-    /// <summary>阶段一：获得目标点（mover 是给"远离"读本回合步数用的）</summary>
-    public static ITargetSource CreateSource(TargetSourceType type, MapManager map, Transform self, int team, ObjectMover mover)
+    /// <summary>阶段一：获得目标点（stepsLeft 是给"远离"读本回合可走步数用的）</summary>
+    public static ITargetSource CreateSource(TargetSourceType type, MapManager map, Transform self, int team, Func<int> stepsLeft)
     {
         switch (type)
         {
             case TargetSourceType.FleeNearestEnemy:
-                return new FleeNearestEnemy(map, self, team, mover);
+                return new FleeNearestEnemy(map, self, team, stepsLeft);
             default:
                 return new ApproachNearestEnemy(map, self, team);
         }
@@ -34,19 +35,19 @@ public static class PathPipelineFactory
         return new BfsPathPlanner(map);
     }
 
-    /// <summary>阶段三：执行路径</summary>
-    public static IPathExecutor CreateExecutor(MapManager map, ObjectMover mover)
+    /// <summary>阶段三：执行路径（自己控制 self 的位置）</summary>
+    public static IPathExecutor CreateExecutor(MapManager map, Transform self, float speed)
     {
-        return new MoverPathExecutor(map, mover);
+        return new MoverPathExecutor(map, self, speed);
     }
 
     /// <summary>一把装配好三段（按枚举选阶段一）</summary>
-    public static void Wire(AutoPilot pilot, TargetSourceType type, MapManager map, Transform self, int team, ObjectMover mover)
+    public static void Wire(AutoPilot pilot, TargetSourceType type, MapManager map, Transform self, int team, Func<int> stepsLeft, float speed)
     {
         if (pilot == null) return;
 
-        pilot.TargetSource = CreateSource(type, map, self, team, mover);
+        pilot.TargetSource = CreateSource(type, map, self, team, stepsLeft);
         pilot.Planner = CreatePlanner(map);
-        pilot.Executor = CreateExecutor(map, mover);
+        pilot.Executor = CreateExecutor(map, self, speed);
     }
 }

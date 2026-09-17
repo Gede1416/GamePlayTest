@@ -76,16 +76,16 @@ public class FleeNearestEnemy : ITargetSource
     readonly MapManager map;
     readonly Transform self;
     readonly int team;
-    readonly ObjectMover mover;      // 用来读本回合还剩几格可走
+    readonly System.Func<int> stepsLeft;      // 本回合可走步数（问 AutoPilot 要，别的段不拦步数）
 
     /// <param name="team">自己的阵营（构造时取一次；阵营会变就重新构造一个）</param>
-    /// <param name="mover">移动组件：本回合的可走步数就是它当前的 stepsLeft（stepLimit 为 0 时视为不限）</param>
-    public FleeNearestEnemy(MapManager map, Transform self, int team, ObjectMover mover)
+    /// <param name="stepsLeft">本回合可走步数；返回 0 或负数视为不限（和 Entity.moveSteps 的 0 = 不限一致）</param>
+    public FleeNearestEnemy(MapManager map, Transform self, int team, System.Func<int> stepsLeft)
     {
         this.map = map;
         this.self = self;
         this.team = team;
-        this.mover = mover;
+        this.stepsLeft = stepsLeft;
     }
 
     // ponytail: 每次调用全图扫一遍找候选格；10×10 网格无所谓，格子大了要改成缓存。
@@ -98,9 +98,9 @@ public class FleeNearestEnemy : ITargetSource
 
         var selfCell = map.WorldToCell(self.position);
 
-        // 这回合还能走几格；不限步数时当成无穷大（退化成原来的全图找最远）
-        int budget = mover != null && mover.stepLimit > 0 ? mover.stepsLeft : int.MaxValue;
-        if (budget <= 0) return false;                      // 步数用完了，这回合不动
+        // 这回合还能走几格；不限步数时当成无穷大（退化成全图找最远）
+        int budget = stepsLeft != null ? stepsLeft() : 0;
+        if (budget <= 0) budget = int.MaxValue;
 
         int nearest = int.MaxValue;
         var enemy = selfCell;

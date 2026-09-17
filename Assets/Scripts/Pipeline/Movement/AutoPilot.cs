@@ -5,11 +5,11 @@ using UnityEngine;
 /// <summary>
 /// 自动寻路管线编排（挂在实体上），三段可替换：
 /// 阶段一 获得目标点（ITargetSource）-> 阶段二 构建行动路径（IPathPlanner）-> 阶段三 执行路径（IPathExecutor）。
-/// 装配与步数都在本组件内完成（Build() 调 PathPipelineFactory，ApplySteps() 写进 ObjectMover），
-/// 和攻击管线的 Attacker 一个套路。只读地图数据（CanEnter），自己不占格子。
+/// 装配在本组件内完成（Build() 调 PathPipelineFactory，阶段三自己挪位置，不再有独立的移动组件）；
+/// 本回合可走步数（ApplySteps）存在这里，只有"远离"阶段一挑落点时读它。
+/// 和攻击管线的 Attacker 一个套路。只读地图数据（CanEnter），占用数据由 MapManager 维护。
 /// 成员顺序：公开字段/属性/方法在前（按调用顺序：装配 → 跑管线 → 移动 → 停 → 步数），私有与 Unity 生命周期在后。
 /// </summary>
-[RequireComponent(typeof(ObjectMover))]
 public class AutoPilot : MonoBehaviour
 {
     [Tooltip("移动管线类型（阶段一）：靠近 / 远离")]
@@ -18,8 +18,8 @@ public class AutoPilot : MonoBehaviour
     [Tooltip("地图管理器；留空则取场景里的第一个")]
     public MapManager map;
 
-    [Tooltip("移动组件；留空则取自己身上的")]
-    public ObjectMover mover;
+    [Tooltip("移动速度（世界单位/秒）；走一格用时 = 地图格子边长 / 速度")]
+    public float speed = 5f;
 
     [Tooltip("当前路径（格子，不含起点）")]
     public readonly List<Vector2Int> path = new();
@@ -53,7 +53,7 @@ public class AutoPilot : MonoBehaviour
     /// <summary>按当前枚举装配三段（工厂造接口，这里只负责装上；也可以外部塞别的实现进来）</summary>
     public void Build()
     {
-        PathPipelineFactory.Wire(this, targetSourceType, map, transform, Team, mover);
+        PathPipelineFactory.Wire(this, targetSourceType, map, transform, Team, () => stepsThisTurn, speed);
     }
 
     /// <summary>完整管线：阶段一 -> 阶段二 -> 阶段三</summary>
@@ -67,9 +67,9 @@ public class AutoPilot : MonoBehaviour
     public bool MoveTo(Vector2Int target)
     {
         Stop();
-        if (map == null || mover == null || Planner == null || Executor == null) return false;
+        if (map == null || Planner == null || Executor == null) return false;
 
-        var start = map.WorldToCell(mover.transform.position);
+        var start = map.WorldToCell(transform.position);
         if (!Planner.TryBuild(start, target, path)) return false;
 
         routine = StartCoroutine(Follow());
@@ -85,33 +85,34 @@ public class AutoPilot : MonoBehaviour
     /// <summary>停下并清空路径</summary>
     public void Stop()
     {
-        if (routine != null) StopCoroutine(routine);
-        routine = null;
+        if (routine != null)
+        {
+            StopCoroutine(routine);
+            routine = null;
+            if (map != null) map.SyncOccupied();   // 走到一半被停：让地图数据跟当前坐标对齐
+        }
+
         path.Clear();
     }
 
-    /// <summary>把每回合步数上限写给移动组件，并把剩余步数补满（Entity 开局与每回合开始时调它）</summary>
-    public void ApplySteps(int steps)
-    {
-        if (mover == null) return;
-        mover.stepLimit = steps;
-        mover.ResetSteps();
-    }
+    /// <summary>记下本回合可走步数（0 = 不限），Entity 开局与每回合开始时调它</summary>
+    public void ApplySteps(int steps) => stepsThisTurn = steps;
 
     // ---------- 私有 ----------
 
     Coroutine routine;
     Health health;
+    int stepsThisTurn;      // 本回合可走步数（0 = 不限）
 
     void Awake()
     {
         if (map == null) map = FindObjectOfType<MapManager>();
-        if (mover == null) mover = GetComponent<ObjectMover>();
         health = GetComponent<Health>();
-        if (mover != null && mover.map == null) mover.map = map;
 
         Build();
     }
+
+    void OnDisable() => Stop();
 
     [ContextMenu("跑一次管线")]
     void RunPipelineMenu() => RunPipeline();
