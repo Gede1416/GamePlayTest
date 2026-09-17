@@ -2,10 +2,12 @@ using System.Collections;
 using UnityEngine;
 
 /// <summary>
-/// 实体：一个角色身上组件的统一入口，也是对外唯一门面（回合 / 地图 / UI / 技能都只认 Entity）。
+/// 实体：组件的统一入口，也是对外唯一门面（回合 / 地图 / UI 只认 Entity）。
 /// 数据所有权：身份(uuid)、先攻、回合步数、管线引用由 Entity 自己持有；
-/// 生命值与阵营仍由 Health 持有（Entity 只转发，保证一份真相）；"技能"完全由管线组件承担
-/// （移动管线 AutoPilot + 攻击管线 Attacker），Entity 不另存技能数据。
+/// 生命值与阵营由 Health 持有（这里只转发）；"技能"由管线组件承担
+/// （移动管线 AutoPilot + 攻击管线 Attacker），不另存技能数据。
+/// 成员顺序约定：公开成员在前（按调用顺序：数据 → 对外门面 → 组件引用 → 行为），
+/// 私有成员与 Unity 生命周期方法在后。
 /// </summary>
 [RequireComponent(typeof(ObjectMover))]
 [RequireComponent(typeof(AutoPilot))]
@@ -18,24 +20,12 @@ public class Entity : MonoBehaviour
     [Tooltip("先攻（回合排序用，大的先动）")]
     public int initiative = 10;
 
-    [Tooltip("每回合最多走几格；0 = 不限")]
+    [Tooltip("每回合最多走几格；0 = 不限（由 AutoPilot.ApplySteps 写进移动组件）")]
     public int moveSteps;
 
     [Header("管线")]
     [Tooltip("地图管理器；留空则取场景里的第一个")]
     public MapManager map;
-
-    /// <summary>自动寻路组件（移动管线的装配对象）</summary>
-    public AutoPilot Pilot { get; private set; }
-
-    /// <summary>移动组件</summary>
-    public ObjectMover Mover { get; private set; }
-
-    /// <summary>生命值组件，可能没有</summary>
-    public Health Health { get; private set; }
-
-    /// <summary>攻击管线组件，可能没有（没有就只移动不攻击）</summary>
-    public Attacker Attacker { get; private set; }
 
     // ---------- 对外数据（借 Entity 报价，所有者见注释） ----------
 
@@ -67,14 +57,21 @@ public class Entity : MonoBehaviour
         set { if (Pilot != null) Pilot.SourceType = value; }
     }
 
-    void Awake()
-    {
-        CacheComponents();
-        if (map == null) map = FindObjectOfType<MapManager>();
-        if (uuid <= 0) Debug.LogWarning($"{name}: uuid 没配（<= 0），地图索引会用不了", this);
+    // ---------- 组件引用 ----------
 
-        Init();     // 用场景里配好的数据装配
-    }
+    /// <summary>自动寻路组件（移动管线的装配对象）</summary>
+    public AutoPilot Pilot { get; private set; }
+
+    /// <summary>移动组件</summary>
+    public ObjectMover Mover { get; private set; }
+
+    /// <summary>生命值组件，可能没有</summary>
+    public Health Health { get; private set; }
+
+    /// <summary>攻击管线组件，可能没有（没有就只移动不攻击）</summary>
+    public Attacker Attacker { get; private set; }
+
+    // ---------- 行为 ----------
 
     /// <summary>
     /// 初始化。不传 data：用场景里配好的（Inspector 字段）装配；
@@ -94,30 +91,13 @@ public class Entity : MonoBehaviour
             if (Attacker != null) Attacker.Type = data.attackType;
         }
 
-        // 管线装配下放在各组件内部（AutoPilot.Build / Attacker.Build），这里只把地图发下去
+        // 管线装配与步数下放都在组件内部（AutoPilot.Build / AutoPilot.ApplySteps / Attacker.Build），这里只把地图发下去
         if (Pilot != null)
         {
             Pilot.map = map;
             Pilot.Build();
+            Pilot.ApplySteps(moveSteps);
         }
-
-        ApplySteps();
-    }
-
-    void CacheComponents()
-    {
-        if (Mover == null) Mover = GetComponent<ObjectMover>();
-        if (Pilot == null) Pilot = GetComponent<AutoPilot>();
-        if (Health == null) Health = GetComponent<Health>();
-        if (Attacker == null) Attacker = GetComponent<Attacker>();
-    }
-
-    /// <summary>把每回合步数上限写给移动组件，并把剩余步数补满（改 moveSteps 后调它）</summary>
-    public void ApplySteps()
-    {
-        if (Mover == null) return;
-        Mover.stepLimit = moveSteps;
-        Mover.ResetSteps();
     }
 
     /// <summary>
@@ -126,19 +106,32 @@ public class Entity : MonoBehaviour
     /// </summary>
     public IEnumerator TakeTurnRoutine()
     {
-        ApplySteps();                                        // 步数补满
-        Attacker?.TickTurn();                                // 技能冷却推进
+        Pilot?.ApplySteps(moveSteps);                            // 步数补满
+        Attacker?.TickTurn();                                    // 技能冷却推进
 
-        AttackOnce();                                        // 攻击 1
-        if (Pilot != null) Pilot.RunPipeline();              // 移动（找目标走过去）
+        Attacker?.RunPipeline();                                 // 攻击 1
+        if (Pilot != null) Pilot.RunPipeline();                  // 移动（找目标走过去）
         while (Pilot != null && Pilot.IsFollowing) yield return null;   // 等移动动画走完
-        AttackOnce();                                        // 攻击 2
+        Attacker?.RunPipeline();                                 // 攻击 2
     }
 
-    /// <summary>打一次：没有攻击组件 / 前置条件不满足 / 范围内没目标都会返回 false</summary>
-    public bool AttackOnce()
+    // ---------- 私有 ----------
+
+    void Awake()
     {
-        return Attacker != null && Attacker.RunPipeline();
+        CacheComponents();
+        if (map == null) map = FindObjectOfType<MapManager>();
+        if (uuid <= 0) Debug.LogWarning($"{name}: uuid 没配（<= 0），地图索引会用不了", this);
+
+        Init();     // 用场景里配好的数据装配
+    }
+
+    void CacheComponents()
+    {
+        if (Mover == null) Mover = GetComponent<ObjectMover>();
+        if (Pilot == null) Pilot = GetComponent<AutoPilot>();
+        if (Health == null) Health = GetComponent<Health>();
+        if (Attacker == null) Attacker = GetComponent<Attacker>();
     }
 }
 

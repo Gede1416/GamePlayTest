@@ -5,8 +5,9 @@ using UnityEngine;
 /// <summary>
 /// 自动寻路管线编排（挂在实体上），三段可替换：
 /// 阶段一 获得目标点（ITargetSource）-> 阶段二 构建行动路径（IPathPlanner）-> 阶段三 执行路径（IPathExecutor）。
-/// 装配由本组件自己做（Build() 调 PathPipelineFactory，按 TargetSourceType 枚举造阶段一），和攻击管线的 Attacker 一个套路。
-/// 只读地图数据（CanEnter），自己不占格子；每一步的合法性仍由 ObjectMover + MapManager 裁决。
+/// 装配与步数都在本组件内完成（Build() 调 PathPipelineFactory，ApplySteps() 写进 ObjectMover），
+/// 和攻击管线的 Attacker 一个套路。只读地图数据（CanEnter），自己不占格子。
+/// 成员顺序：公开字段/属性/方法在前（按调用顺序：装配 → 跑管线 → 移动 → 停 → 步数），私有与 Unity 生命周期在后。
 /// </summary>
 [RequireComponent(typeof(ObjectMover))]
 public class AutoPilot : MonoBehaviour
@@ -32,9 +33,7 @@ public class AutoPilot : MonoBehaviour
     /// <summary>阶段三：执行路径</summary>
     public IPathExecutor Executor { get; set; }
 
-    Coroutine routine;
-    Health health;
-
+    /// <summary>是否正在走（动画中，输入被阻断）</summary>
     public bool IsFollowing => routine != null;
 
     /// <summary>自己的阵营；没有 Health 就当 0</summary>
@@ -51,16 +50,6 @@ public class AutoPilot : MonoBehaviour
         }
     }
 
-    void Awake()
-    {
-        if (map == null) map = FindObjectOfType<MapManager>();
-        if (mover == null) mover = GetComponent<ObjectMover>();
-        health = GetComponent<Health>();
-        if (mover != null && mover.map == null) mover.map = map;
-
-        Build();
-    }
-
     /// <summary>按当前枚举装配三段（工厂造接口，这里只负责装上；也可以外部塞别的实现进来）</summary>
     public void Build()
     {
@@ -73,9 +62,6 @@ public class AutoPilot : MonoBehaviour
         if (TargetSource == null || !TargetSource.TryGetTarget(out var goal)) return false;
         return MoveTo(goal);
     }
-
-    [ContextMenu("跑一次管线")]
-    void RunPipelineMenu() => RunPipeline();
 
     /// <summary>阶段二 + 阶段三：指定目标格，构建路径并出发</summary>
     public bool MoveTo(Vector2Int target)
@@ -90,13 +76,6 @@ public class AutoPilot : MonoBehaviour
         return true;
     }
 
-    /// <summary>阶段三的包装：执行完把状态收回来（执行器只管走路，不用操心 AutoPilot 的状态）</summary>
-    IEnumerator Follow()
-    {
-        yield return Executor.Run(path);
-        routine = null;
-    }
-
     /// <summary>阶段二 + 阶段三：指定目标点（世界坐标）</summary>
     public bool MoveTo(Vector3 target)
     {
@@ -109,6 +88,39 @@ public class AutoPilot : MonoBehaviour
         if (routine != null) StopCoroutine(routine);
         routine = null;
         path.Clear();
+    }
+
+    /// <summary>把每回合步数上限写给移动组件，并把剩余步数补满（Entity 开局与每回合开始时调它）</summary>
+    public void ApplySteps(int steps)
+    {
+        if (mover == null) return;
+        mover.stepLimit = steps;
+        mover.ResetSteps();
+    }
+
+    // ---------- 私有 ----------
+
+    Coroutine routine;
+    Health health;
+
+    void Awake()
+    {
+        if (map == null) map = FindObjectOfType<MapManager>();
+        if (mover == null) mover = GetComponent<ObjectMover>();
+        health = GetComponent<Health>();
+        if (mover != null && mover.map == null) mover.map = map;
+
+        Build();
+    }
+
+    [ContextMenu("跑一次管线")]
+    void RunPipelineMenu() => RunPipeline();
+
+    /// <summary>阶段三的包装：执行完把状态收回来（执行器只管走路，不用操心 AutoPilot 的状态）</summary>
+    IEnumerator Follow()
+    {
+        yield return Executor.Run(path);
+        routine = null;
     }
 
     // 选中时画出当前路径
