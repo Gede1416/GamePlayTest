@@ -119,7 +119,7 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 
 - 仓库：https://github.com/Gede1416/GamePlayTest.git，remote 名 `origin`，分支 `main`
 - **每次改动都要单独提交一次**，提交信息按 `COMMIT_CONVENTION.md` 写：`<type>(<scope>): <中文描述>`，type 用 feat/fix/docs/style/refactor/perf/test/build/ci/chore/revert，scope 参考该文件里的模块表，一个提交只做一件事（用户靠提交记录回看修改）
-- **提交信息用 `git commit -F <临时文件>`**（写完删掉），或者在 `-m` 里保证不含英文双引号 / `<>` / 反引号：PowerShell 里 `-m` 中的英文引号会把消息截断，后面每一段都被 git 当成 pathspec 报 `did not match any file(s)`（已踩过两次）。
+- **提交信息用 `git commit -F <临时文件>`**，文件写到 `Temp/`（已被 gitignore 排除）或系统临时目录，**别放仓库根目录**——`git add -A` 会把它一起提交进去（踩过一次）；或者用 `-m` 但保证消息里不含英文双引号 / `<>` / 反引号：PowerShell 里 `-m` 中的英文引号会把消息截断，后面每一段都被 git 当成 pathspec 报 `did not match any file(s)`（踩过两次）。
 - `.gitignore` 已排除 `Library/`、`Temp/`、`Logs/`、`obj/`、`UserSettings/` 和 Unity 生成的 `*.csproj` / `*.sln`
 - 提交脚本改动前的自检：复制 `Assembly-CSharp.csproj` 成临时 csproj，把所有 `<Compile Include="..." />` 换成一条 `<Compile Include="Assets\**\*.cs" />` 再 `dotnet build`（Unity 生成的清单会过期，文件搬过目录后尤其明显；这份 csproj 自带 UnityEditor 程序集引用，编辑器脚本一并覆盖）；0 错误 0 警告后再提交，临时 csproj / bin / obj 删掉
 - 提交场景改动前的自检：`python _validate_scene.py`

@@ -1,8 +1,0 @@
-refactor: 按外部引用收紧可见性，补代码说明
-
-1) 只在自己类里用的方法收成 private：MapManager 的 Build / ResetEntities / ReleaseEntity / UuidAt / EntityAt / EntityOf / IsOccupied / InBounds / SelfCheck / SelfCheckPath（后两个仍能右键组件菜单跑），TurnManager 的 BuildActionStack / PopNext；
-2) 没有任何调用者的方法删掉：MapManager.EntitiesAt / TryGetCell / CancelMove（移动中断改用 SyncOccupied，CancelMove 已废弃）；
-3) 伤害改走 Entity.TakeDamage 门面（DamageCaster 原先直接调 Health.TakeDamage），让 Entity 的唯一伤害入口名实相符；
-4) 给缺失的公开成员补 summary 注释：BfsPathPlanner.TryBuild、MoverPathExecutor.Run、CooldownCastCheck 的 StartCooldown/TickTurn/CanCast、近战远程 TargetFinder.TryFindTargets、DamageCaster.Cast、MapManager.Build 等；
-5) 保留 public 的对外入口：BattleManager 四个方法、Health.Die、EventPipeline 收发接口（用户点名要的）；
-6) AGENTS.md 增可见性约定、补 git 提交信息引号注意事项，并同步表格。
