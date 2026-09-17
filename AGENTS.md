@@ -50,7 +50,7 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
   `entityPaths` = [`Assets/prefab/Melee.prefab`, `Assets/prefab/Ranger.prefab`]（顺序对应地图的 `spawnPoints`）、
   `mapPos` = `map_pos`、`uiManager` = 同一个物体上的 `BattleUIManager`（`fontSize` 48、`textScale` 0.08、血条 0.8×0.12、伤害上飘 1 / 0.9 秒）
 - `map_pos`（GO `308726978`）：只有 Transform，位置 (0,0,0)；加载出来的地图/实体/回合控制器都挂它下面（`mapPos` 留空就放场景根）
-- 场景检查：`python _validate_scene.py`（现在 21 个块；查 fileID 引用、组件归属、父子关系、SceneRoots、缩进）
+- 场景检查：`python _validate_scene.py`（现在 22 个块；查 fileID 引用、组件归属、父子关系、SceneRoots、缩进）
 - 预制体（都在 `Assets/prefab/`，手工维护）：
   - `map1.prefab`：MeshFilter / MeshRenderer / MeshCollider + `MapManager`（`cellSize` 1；`spawnPoints` = [(1,1), (2,2)]；
     `entities` 是 2 个**空槽**——跨对象引用进不了预制体，由 `BattleManager` 运行时填）
@@ -105,7 +105,7 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 - 预制体：`Assets/prefab/*.prefab` 由 `BattleManager` 在运行时实例化（场景里只有 BattleManager 和 map_pos）；跨对象引用进不了预制体，所以 `map` / `entities` / `actors` 这些槽由 `BattleManager` 填（见「场景」一节）；预制体目前是**手工维护**的，改了结构要自己存（原来那个按名字导出的 `BattlePrefabExporter` 已经删掉）
 - `Entity.uuid`：在预制体上手填（`Ranger.prefab` uuid 1、`Melee.prefab` uuid 2）；`SyncOccupied()` 现在会查重但**只警告不修正**（重复时后者这次被跳过），uuid 分配器还没做
 - `BattleManager`：预制体靠 Inspector 里手填的**路径字符串**加载——`LoadPrefab` 先按文件名走 `Resources.Load`，编辑器里再退回 `AssetDatabase.LoadAssetAtPath`，所以现在不改目录就能跑，但**打包后必须把预制体放进某个 `Resources` 目录**；清场用 `Destroy`（当帧末尾才真销毁，重开那一帧新旧对象并存，靠显式发地图引用避开旧地图）；实体初始位置完全依赖地图预制体上的 `spawnPoints`（数量不够的实体留在被实例化的位置）；`BuildBattle()` 装完会看 turn 预制体的 `autoStart` 决定要不要立刻开打（true 就调 `StartBattle()`），也可以外部随时调 `StartBattle()` / `RebuildBattle()`；目前没有任何 UI / 快捷键触发它们（NavTest 那套测试按钮已随场景重构删掉）；**组件都不再有 `Awake` / `Start` 初始化，只有 `BattleManager.Awake` 是入口**——谁没被 `Init()` 调到谁就不工作
-- `EventPipeline`：静态总线（全局单例语义）——同一类型可订多个、按订阅顺序回调，没有优先级 / 取消 / 一次性订阅；`Clear()` 会清掉所有类型的订阅（现在只有 `BattleManager` 一个订阅者，将来加 UI 订阅要注意别被 `ClearBattle()` 一起清掉）；`BattleEnded` 目前**没有别的订阅者**，发出去只打了日志（要接 UI / 结算就往订阅表里加）
+- `EventPipeline`：静态总线（全局单例语义）——按类型分发、同一类型可订多个、按订阅顺序回调，没有优先级 / 取消 / 一次性订阅；`Clear()` 会清掉**所有类型**的订阅（`BattleManager.ClearBattle` 末尾调一次兜底，谁在它之后才订阅就会被误清，加订阅者时注意）；订阅用方法组（`Subscribe<T>(OnXxx)`），退订必须传同一个方法组——**别用 lambda 订阅**（lambda 退不掉）
 - 战斗结束：`BattleManager.EndGame()` 直接调 `TurnManager.Clear()` 让回合停手，所以结束后 `TurnState` 是 `Idle`（不是 `Finished`）、参战列表也空了；要区分"打完了"可以再给 `TurnManager` 一个结束态
 - **界面（UI）**：全部是运行时建的，场景 / 预制体里没有任何 UI 资源——HUD 挂在主相机下（相机空间 `roundPos` / `resultPos`），伤害数字与血条挂在实体的 UI 点位下；文字用 `TextMesh`（内置字体 `LegacyRuntime.ttf`，**没有中文字形，所以界面文字只能英文 / 数字**）；血条用两块 1×1 白色 `SpriteRenderer`（`Texture2D.whiteTexture` 现建精灵）；字的大小（`fontSize` / `textScale`）与 HUD 位置是拍的初值，**没在播放模式下看过，需要在 Inspector 里微调**；伤害数字不合并、不加暴击/治疗等前缀；血条没有缓动、没有数字文本
 - 脚本都还没在播放模式下跑过（两个角色都没有 Rigidbody，移动是直接写 `transform.position`）
