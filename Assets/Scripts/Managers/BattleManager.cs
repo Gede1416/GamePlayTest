@@ -31,6 +31,8 @@ public class BattleManager : MonoBehaviour
     TurnManager turnManager;
     List<Entity> entities;
 
+    bool ended;             // 这局是否已经结束（防止重复发结束消息）
+
     #endregion
 
     #region 生命周期
@@ -82,6 +84,9 @@ public class BattleManager : MonoBehaviour
         entities = new List<Entity>();
         mapManager = null;
         turnManager = null;
+
+        EventPipeline.Clear();          // 订阅也一起清掉，下次 BuildBattle 重新订
+        ended = false;
     }
 
     #endregion
@@ -149,6 +154,10 @@ public class BattleManager : MonoBehaviour
     /// <summary>3. 初始化操作：按顺序调各组件的 Init（地图 → 实体 → 回合），最后按 autoStart 决定要不要开打</summary>
     void InitBattle()
     {
+        // 订阅放在开打之前，免得第一回合的死亡消息漏掉
+        EventPipeline.Subscribe(BattleEventType.EntityDied, OnEntityDied);
+        ended = false;
+
         mapManager.Init();                                  // 建网格 + 摆到初始位置 + 重建占用
 
         foreach (var entity in entities) entity.Init();      // 各自按预制体数据装配管线
@@ -161,6 +170,39 @@ public class BattleManager : MonoBehaviour
         });
 
         if (turnManager.autoStart) turnManager.StartBattle();   // 开打由这里发起（回合管理器自己不用 Start）
+    }
+
+    /// <summary>收到死亡消息：场上只剩一个阵营就结束游戏（一个不剩 = 全灭，按打平处理）</summary>
+    void OnEntityDied(BattleEvent e)
+    {
+        Debug.Log(e.entity != null
+            ? $"[BattleManager] {e.entity.name} 阵亡（阵营 {e.team}）"
+            : $"[BattleManager] 有实体阵亡（阵营 {e.team}）");
+
+        if (ended || entities == null) return;
+
+        var aliveTeams = new List<int>();                   // 场上还活着的阵营
+        foreach (var entity in entities)
+        {
+            if (entity == null || entity.IsDead) continue;
+            if (!aliveTeams.Contains(entity.Team)) aliveTeams.Add(entity.Team);
+        }
+
+        if (aliveTeams.Count > 1) return;                   // 还有多个阵营在打，继续
+        EndGame(aliveTeams.Count == 1 ? aliveTeams[0] : -1);
+    }
+
+    /// <summary>结束游戏：让回合停手，再发结束消息（胜方阵营 -1 = 打平 / 全灭）</summary>
+    void EndGame(int winnerTeam)
+    {
+        ended = true;
+
+        if (turnManager != null) turnManager.Clear();       // 停手走清理接口，统一由战斗管理器发起
+        Debug.Log(winnerTeam >= 0
+            ? $"[BattleManager] 战斗结束：阵营 {winnerTeam} 获胜"
+            : "[BattleManager] 战斗结束：没有幸存者（打平）");
+
+        EventPipeline.Send(BattleEvent.BattleEnded(winnerTeam));
     }
 
     /// <summary>加载出来的对象统一挂到 mapPos 下（没配 mapPos 就放场景根）</summary>
@@ -187,5 +229,4 @@ public class BattleManager : MonoBehaviour
     }
 
     #endregion
-
 }
