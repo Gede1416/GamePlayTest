@@ -96,7 +96,8 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 - `.gitignore` 已排除 `Library/`、`Temp/`、`Logs/`、`obj/`、`UserSettings/` 和 Unity 生成的 `*.csproj` / `*.sln`
 - 提交脚本改动前的自检：复制 `Assembly-CSharp.csproj` 成临时 csproj，把所有 `<Compile Include="..." />` 换成一条 `<Compile Include="Assets\**\*.cs" />` 再 `dotnet build`（Unity 生成的清单会过期，文件搬过目录后尤其明显；这份 csproj 自带 UnityEditor 程序集引用，编辑器脚本一并覆盖）；0 错误 0 警告后再提交，临时 csproj / bin / obj 删掉
 - 提交场景改动前的自检：`python _validate_scene.py`
-- `commit` 不受沙箱影响；**`push` 需要放宽沙箱**（凭据管理器要创建管道，受限模式下报 `couldn't create signal pipe, Win32 error 5` + `could not read Username`）。推不上去就把命令交给用户在终端里跑一次。
+- **用户已授权（2026-09-17）：`add` / `commit` / `push` 直接做，不必逐次询问。**每完成一处改动就自己提交、自己推，不用先问要不要提交。
+- `commit` 不受沙箱影响；**`push` 需要放宽沙箱**（凭据管理器要创建管道，受限模式下报 `couldn't create signal pipe, Win32 error 5` + `could not read Username`），所以推的时候直接带 `sandbox_permissions: danger-full-access`（这是已获授权的常规操作，不是新请求）；只有推送仍然失败（如网络不通）才把命令交给用户在终端里跑一次。
 - 本仓库本地设了 `http.sslBackend=openssl`：这台机器上 Windows schannel 握不上手（`SEC_E_NO_CREDENTIALS`）
 - `SampleScene.unity.bak` 现在被 `.gitignore` 排除，git 已经能回看历史，不再需要它
 
