@@ -4,8 +4,8 @@ using UnityEngine;
 /// <summary>
 /// 地图管理器（3D 俯视角，y 为高度）：
 /// 按地图 GameObject 的长宽（x / z）和单位距离划分 XZ 网格。
-/// 地图数据有两份索引：**格子→实体 uuid 的二维图**（cells），以及 **uuid→二维位置 / uuid→实体** 的字典；
-/// 占用判定、坐标换算、寻路都从这里问（外部只读，改数据只走 TryMove / SyncOccupied）。
+/// 地图数据只有一份：**格子→实体 uuid 的二维图**（cells）；占用判定、坐标换算、寻路都从这里问
+/// （外部只读，改数据只走 TryMove / SyncOccupied）。uuid→位置 / uuid→实体 的字典暂时不需要，已删。
 /// 订阅了死亡消息：单位阵亡就把它的格子放开（见 OnEntityDied）。
 /// 成员顺序：属性 → 生命周期 → 公开方法 → 私有方法（各组内按调用顺序）。
 /// </summary>
@@ -31,9 +31,7 @@ public class MapManager : MonoBehaviour
     [Tooltip("初始位置列表（格子坐标），与实体列表一一对应")]
     public List<Vector2Int> spawnPoints = new();
 
-    int[,] cells;                                              // 二维图：格子 -> 实体 uuid
-    readonly Dictionary<int, Vector2Int> positions = new();    // uuid -> 二维位置
-    readonly Dictionary<int, Entity> byUuid = new();           // uuid -> 实体
+    int[,] cells;      // 二维图：格子 -> 实体 uuid（Empty = 空，Unknown = 占着但没登记 uuid）
 
     static readonly Vector2Int[] Dirs = { Vector2Int.right, Vector2Int.left, Vector2Int.up, Vector2Int.down };
 
@@ -98,12 +96,10 @@ public class MapManager : MonoBehaviour
         EventPipeline.Unsubscribe(BattleEventType.EntityDied, OnEntityDied);
 
         cells = null;
-        positions.Clear();
-        byUuid.Clear();
         entities.Clear();
     }
 
-    /// <summary>按地图物体的包围盒和 cellSize 重新划分网格，并清空两份索引（Init 与 SyncOccupied 内部用）</summary>
+    /// <summary>按地图物体的包围盒和 cellSize 重新划分网格，并清空二维图（Init 与 SyncOccupied 内部用）</summary>
     void Build()
     {
         if (map == null || cellSize <= 0f) return;
@@ -116,8 +112,6 @@ public class MapManager : MonoBehaviour
         Rows = Mathf.Max(1, Mathf.CeilToInt(b.size.z / cellSize));
 
         cells = new int[Cols, Rows];
-        positions.Clear();
-        byUuid.Clear();
     }
 
     /// <summary>把所有实体放回各自的初始位置（多余/缺位的实体保持原位），然后重建地图数据（Init 内部用）</summary>
@@ -130,7 +124,7 @@ public class MapManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 按 entities 的当前位置重建地图数据（格子→uuid、uuid→位置、uuid→实体）。
+    /// 按 entities 的当前位置重建二维图（格子→uuid）。
     /// 没登记 uuid 的实体格子照样占住，记 Unknown；uuid 重复只警告，后者跳过。
     /// </summary>
     public void SyncOccupied()
@@ -139,8 +133,8 @@ public class MapManager : MonoBehaviour
         if (cells == null) return;
 
         System.Array.Clear(cells, 0, cells.Length);
-        positions.Clear();
-        byUuid.Clear();
+
+        var placed = new Dictionary<int, string>();     // 本次已经摆下的 uuid -> 物体名，只用来查重
 
         foreach (var go in entities)
         {
@@ -162,38 +156,32 @@ public class MapManager : MonoBehaviour
                 continue;
             }
 
-            if (byUuid.ContainsKey(entity.Uuid))
+            if (placed.TryGetValue(entity.Uuid, out var other))
             {
-                Debug.LogWarning($"[MapManager] uuid {entity.Uuid} 重复：{go.name} 与 {byUuid[entity.Uuid].name}，后者这次被跳过", go);
+                Debug.LogWarning($"[MapManager] uuid {entity.Uuid} 重复：{go.name} 与 {other}，后者这次被跳过", go);
                 continue;
             }
 
             cells[cell.x, cell.y] = entity.Uuid;
-            positions[entity.Uuid] = cell;
-            byUuid[entity.Uuid] = entity;
+            placed[entity.Uuid] = go.name;
         }
     }
 
     /// <summary>
-    /// 把一个单位从地图登记里摘掉并放开它占的格子（收到死亡消息时走这里，物体本身由上级销毁）。
-    /// 摘掉之后它不再是目标、也不再挡路；下次 SyncOccupied 也不会把它算回来。
+    /// 放开一个单位占的格子，并把它从实体列表里摘掉（收到死亡消息时走这里，物体本身由上级销毁）。
+    /// 按它当前所在的格子清：登记过 uuid 的要和二维图对得上才清，占着但没登记的（Unknown）也清；
+    /// 摘掉之后它不再是目标、也不再挡路，下次 SyncOccupied 也不会把它算回来。
     /// </summary>
     void ReleaseEntity(Entity entity)
     {
-        if (entity == null) return;
+        if (entity == null || cells == null) return;
 
-        int uuid = entity.Uuid;
-        if (cells != null && positions.TryGetValue(uuid, out var cell) &&
-            InBounds(cell) && cells[cell.x, cell.y] == uuid)
-            cells[cell.x, cell.y] = Empty;
-
-        positions.Remove(uuid);
-        byUuid.Remove(uuid);
-
-        // 没登记 uuid 的单位格子记的是 Unknown，按坐标放开
-        var pos = WorldToCell(entity.transform.position);
-        if (cells != null && InBounds(pos) && cells[pos.x, pos.y] == Unknown)
-            cells[pos.x, pos.y] = Empty;
+        var cell = WorldToCell(entity.transform.position);
+        if (InBounds(cell))
+        {
+            int id = cells[cell.x, cell.y];
+            if (id == entity.Uuid || id == Unknown) cells[cell.x, cell.y] = Empty;
+        }
 
         entities.Remove(entity.gameObject);
     }
@@ -205,19 +193,6 @@ public class MapManager : MonoBehaviour
     {
         if (cells == null || !InBounds(cell)) return Empty;
         return cells[cell.x, cell.y];
-    }
-
-    /// <summary>格子里的实体；空 / Unknown 都返回 null</summary>
-    Entity EntityAt(Vector2Int cell)
-    {
-        int id = UuidAt(cell);
-        return id > Empty ? EntityOf(id) : null;
-    }
-
-    /// <summary>实体 uuid 对应的实体；没有返回 null</summary>
-    Entity EntityOf(int uuid)
-    {
-        return byUuid.TryGetValue(uuid, out var e) ? e : null;
     }
 
     /// <summary>格子是否已被占用（没登记 uuid 的也算占用）</summary>
@@ -259,8 +234,8 @@ public class MapManager : MonoBehaviour
     #region 移动裁决
 
     /// <summary>
-    /// 移动指令裁决：从 from 沿 step 走一格。合法（界内且落点未被占用）就把地图数据从 from 移到落点
-    /// （二维图 + uuid→位置），并用 to 返回落点格；不合法返回 false 且不动任何数据。
+    /// 移动指令裁决：从 from 沿 step 走一格。合法（界内且落点未被占用）就把二维图里的 uuid 从 from 挪到落点，
+    /// 并用 to 返回落点格；不合法返回 false 且不动任何数据。
     /// </summary>
     public bool TryMove(Vector2Int from, Vector2Int step, out Vector2Int to)
     {
@@ -272,7 +247,6 @@ public class MapManager : MonoBehaviour
 
         cells[from.x, from.y] = Empty;
         cells[to.x, to.y] = id;
-        if (id > Empty) positions[id] = to;
         return true;
     }
 
@@ -357,34 +331,46 @@ public class MapManager : MonoBehaviour
             : $"[MapManager] 寻路自检不通过：终点是 {prev}，应该是 {to}", this);
     }
 
-    /// <summary>自检：二维图与 uuid→位置/实体 两份索引是否一致（右键组件菜单跑）</summary>
+    /// <summary>自检：二维图跟实体列表对不对得上——每个登记了 uuid 的单位应该恰好占一格（右键组件菜单跑）</summary>
     [ContextMenu("自检：地图数据一致性")]
     void SelfCheck()
     {
         if (cells == null) { Debug.LogWarning("[MapManager] 还没 Build，没有地图数据可查"); return; }
 
+        var times = new Dictionary<int, int>();     // uuid 在二维图里出现了几次
         int occupied = 0, known = 0;
         for (int x = 0; x < Cols; x++)
             for (int z = 0; z < Rows; z++)
-                if (cells[x, z] != Empty)
-                {
-                    occupied++;
-                    if (cells[x, z] > Empty) known++;
-                }
+            {
+                int id = cells[x, z];
+                if (id == Empty) continue;
 
-        bool ok = known == positions.Count && known == byUuid.Count;
-        foreach (var pair in positions)
+                occupied++;
+                if (id <= Empty) continue;          // Unknown：占着但没登记 uuid
+
+                known++;
+                times.TryGetValue(id, out var n);
+                times[id] = n + 1;
+            }
+
+        bool ok = true;
+        foreach (var go in entities)
         {
-            var cell = pair.Value;
-            if (InBounds(cell) && cells[cell.x, cell.y] == pair.Key) continue;
+            if (go == null) continue;
+
+            var entity = go.GetComponent<Entity>();
+            if (entity == null || entity.Uuid <= Empty) continue;
+
+            times.TryGetValue(entity.Uuid, out var n);
+            if (n == 1) continue;
 
             ok = false;
-            Debug.LogError($"[MapManager] uuid {pair.Key} 记的位置 {cell} 与二维图对不上", this);
+            Debug.LogError($"[MapManager] uuid {entity.Uuid}（{go.name}）在二维图里出现 {n} 次，应该恰好 1 次", go);
         }
 
         Debug.Log(ok
-            ? $"[MapManager] 自检通过：占格 {occupied}（登记 uuid {known}），positions/byUuid = {positions.Count}/{byUuid.Count}"
-            : $"[MapManager] 自检不通过：占格 {occupied}，登记 {known}，positions {positions.Count}，byUuid {byUuid.Count}", this);
+            ? $"[MapManager] 自检通过：占格 {occupied}（登记 uuid {known}），实体列表 {entities.Count} 个"
+            : $"[MapManager] 自检不通过：占格 {occupied}，登记 {known}，实体列表 {entities.Count} 个", this);
     }
 
     #endregion
