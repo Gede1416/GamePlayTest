@@ -16,6 +16,7 @@ GameObject:
   - component: {fileID: 8089101991429019477}
   - component: {fileID: 4382131274938607984}
   - component: {fileID: 3702875163980618449}
+  - component: {fileID: 7001000000000000002}
   m_Layer: 0
   m_Name: Ranger
   m_TagString: Untagged
@@ -171,3 +172,16 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!114 &7001000000000000002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4230794395295821851}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1f4a7c2e8b9d4f6e9a3c5d7b0e2f4a68, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  fadeTime: 0.6
