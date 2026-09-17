@@ -1,6 +1,12 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+/// <summary>
+/// 战场管理：统一负责「加载 → 初始化 → 开打 → 清场重来」。
+/// 预制体路径在 Inspector 里配（mapPath / turnPath / entityPaths），加载出来的对象统一挂到 mapPos 下。
+/// 加载顺序：地图先就位（实体要靠它定位），再把实体列表接进地图、参战列表接进回合管理器，最后各自 Init。
+/// RebuildBattle() = 清掉当前加载的全部对象，重新加载初始化一遍。
+/// </summary>
 public class BattleManager : MonoBehaviour
 {
     [SerializeField] private string mapPath;
@@ -12,33 +18,121 @@ public class BattleManager : MonoBehaviour
     private TurnManager _turnManager;
     private List<Entity> _entities;
 
-    void Awake()
+    /// <summary>
+    /// 加载 + 初始化整场战斗（开局与 RebuildBattle 都走它，开头先清场所以可以反复调）。
+    /// 只负责把东西装好，不负责开打：开打由 turn 预制体上的 autoStart 或外部调 StartBattle() 决定。
+    /// </summary>
+    public void BuildBattle()
     {
-        // 加载目标路径的全部对象 并缓存对应组件
-        // _mapManager = ?
-        // _turnManager = ?
-        // _entities = ?
-    }
+        ClearBattle();
 
-    void Start()
-    {
-        _mapManager.Init();
-        foreach (var entity in _entities)
+        // ---------- 地图 ----------
+        var mapPrefab = LoadPrefab(mapPath);
+        if (mapPrefab == null) return;                       // 加载不到地图就没法继续（LoadPrefab 已经报错）
+
+        _mapManager = InstantiateAt(mapPrefab).GetComponent<MapManager>();
+        if (_mapManager == null)
         {
-            entity.Init();
+            Debug.LogError($"[BattleManager] {mapPath} 上没有 MapManager 组件", this);
+            return;
         }
-        _turnManager.Init();
+
+        // ---------- 实体 ----------
+        _entities = new List<Entity>();
+        var entityObjects = new List<GameObject>();
+
+        foreach (var path in entityPaths)
+        {
+            var prefab = LoadPrefab(path);
+            if (prefab == null) continue;
+
+            var go = InstantiateAt(prefab);
+            var entity = go.GetComponent<Entity>();
+            if (entity == null)
+            {
+                Debug.LogError($"[BattleManager] {path} 上没有 Entity 组件", go);
+                Destroy(go);
+                continue;
+            }
+
+            // 地图引用直接发下去：别让组件自己 FindObjectOfType（重开时可能找到正在销毁的旧地图）
+            entity.map = _mapManager;
+            _entities.Add(entity);
+            entityObjects.Add(go);
+        }
+
+        _mapManager.entities = entityObjects;                // 顺序对应 spawnPoints
+        _mapManager.Init();                                  // 建网格 + 摆到初始位置 + 重建占用
+        foreach (var entity in _entities) entity.Init();      // 各自按预制体数据装配管线
+
+        // ---------- 回合 ----------
+        var turnPrefab = LoadPrefab(turnPath);
+        if (turnPrefab == null) return;
+
+        _turnManager = InstantiateAt(turnPrefab).GetComponent<TurnManager>();
+        if (_turnManager == null)
+        {
+            Debug.LogError($"[BattleManager] {turnPath} 上没有 TurnManager 组件", this);
+            return;
+        }
+
+        _turnManager.Init(new TurnInitData
+        {
+            actors = _entities,
+            totalRounds = _turnManager.totalRounds,          // 回合数与间隔沿用预制体上配的
+            turnDelay = _turnManager.turnDelay,
+        });
     }
 
+    /// <summary>开打（回合信息在 BuildBattle 里已经装好）</summary>
     public void StartBattle()
     {
-
+        if (_turnManager != null) _turnManager.StartBattle();
     }
 
-    public void RebuildBattle()
+    /// <summary>清场重来：清掉当前加载的全部对象，再加载初始化一遍</summary>
+    public void RebuildBattle() => BuildBattle();
+
+    /// <summary>清掉加载出来的地图 / 实体 / 回合控制器（先让回合停手再销毁）</summary>
+    public void ClearBattle()
     {
+        if (_turnManager != null) _turnManager.StopBattle();
 
+        if (_mapManager != null) Destroy(_mapManager.gameObject);
+        if (_turnManager != null) Destroy(_turnManager.gameObject);
+        if (_entities != null)
+            foreach (var entity in _entities)
+                if (entity != null) Destroy(entity.gameObject);
+
+        _entities = new List<Entity>();
+        _mapManager = null;
+        _turnManager = null;
     }
 
+    // ---------- 私有 ----------
 
+    void Awake() => BuildBattle();      // 进播放就加载初始化一次，之后随时可以 RebuildBattle()
+
+    /// <summary>加载出来的对象统一挂到 mapPos 下（没配 mapPos 就放场景根）</summary>
+    GameObject InstantiateAt(GameObject prefab)
+    {
+        return mapPos != null
+            ? Instantiate(prefab, mapPos.position, Quaternion.identity, mapPos)
+            : Instantiate(prefab);
+    }
+
+    /// <summary>按路径加载预制体：先按名字走 Resources（打包后也能用），编辑器里再退回按资源路径加载</summary>
+    static GameObject LoadPrefab(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return null;
+
+        var go = Resources.Load<GameObject>(System.IO.Path.GetFileNameWithoutExtension(path));
+#if UNITY_EDITOR
+        if (go == null) go = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(path);
+#endif
+        if (go == null)
+            Debug.LogError($"[BattleManager] 加载不到预制体：{path}（放进 Resources 目录就能在打包后也加载到）");
+
+        return go;
+    }
 }

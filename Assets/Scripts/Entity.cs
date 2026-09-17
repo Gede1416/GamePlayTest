@@ -94,6 +94,12 @@ public class Entity : MonoBehaviour
             Pilot.Build();
             Pilot.ApplySteps(moveSteps);
         }
+
+        if (Attacker != null)
+        {
+            Attacker.map = map;
+            Attacker.Build();
+        }
     }
 
     /// <summary>
