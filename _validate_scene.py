@@ -1,7 +1,7 @@
 # 场景一致性检查：fileID 引用、组件归属、根节点、缩进。一次性脚本，用完可删。
 import re, sys, collections
 
-SCENE = r"Assets/Scenes/SampleScene.unity"
+SCENE = sys.argv[1] if len(sys.argv) > 1 else r"Assets/Scenes/SampleScene.unity"   # 默认查主场景，也可传路径
 text = open(SCENE, encoding="utf-8").read()
 lines = text.splitlines()
 errs, warns = [], []
