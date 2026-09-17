@@ -11,7 +11,7 @@ using UnityEngine;
 [RequireComponent(typeof(AutoPilot))]
 public class Entity : MonoBehaviour
 {
-    // ---------- 属性 ----------
+    #region 属性
 
     [Header("数据")][Tooltip("实体唯一 id：地图的 格子→uuid 二维图 与 uuid→位置 索引都用它（<= 0 会警告）")]
     [SerializeField] int uuid = 1;
@@ -56,7 +56,9 @@ public class Entity : MonoBehaviour
         set { if (Pilot != null) Pilot.SourceType = value; }
     }
 
-    // ---------- 公开方法 ----------
+    #endregion
+
+    #region 公开方法
 
     /// <summary>
     /// 初始化：由上级（BattleManager）调用，自己再把初始化发给身上的组件（Health → AutoPilot → Attacker）。
@@ -118,7 +120,9 @@ public class Entity : MonoBehaviour
         Attacker?.RunPipeline();                                 // 攻击 2
     }
 
-    // ---------- 私有方法 ----------
+    #endregion
+
+    #region 私有方法
 
     void CacheComponents()
     {
@@ -126,6 +130,9 @@ public class Entity : MonoBehaviour
         if (Health == null) Health = GetComponent<Health>();
         if (Attacker == null) Attacker = GetComponent<Attacker>();
     }
+
+    #endregion
+
 }
 
 /// <summary>

@@ -11,10 +11,13 @@ using UnityEngine.SceneManagement;
 /// 编辑器会自动重新加载，不再需要手动切窗口/避免误保存覆盖。
 /// 丢掉编辑器里未保存的改动之前，会先另存一份到 Temp/ 备份。
 /// 开关：菜单 Tools/场景以磁盘为准（默认开）。
+/// 成员顺序：属性 → 生命周期 → 公开方法（菜单入口）→ 私有方法（各组内按调用顺序）。
 /// </summary>
 [InitializeOnLoad]
 public static class SceneAutoReload
 {
+    #region 属性
+
     const string MenuPath = "Tools/场景以磁盘为准";
     const string PrefKey = "DSH.SceneAutoReload";
     const double Interval = 1.0;          // 秒，多久查一次文件时间
@@ -30,12 +33,20 @@ public static class SceneAutoReload
         set => EditorPrefs.SetBool(PrefKey, value);
     }
 
+    #endregion
+
+    #region 生命周期
+
     static SceneAutoReload()
     {
         if (hooked) return;               // 关了域重载时 update 会重复挂
         hooked = true;
         EditorApplication.update += Tick;
     }
+
+    #endregion
+
+    #region 公开方法（菜单入口）
 
     [MenuItem(MenuPath, false, 100)]
     static void Toggle()
@@ -56,6 +67,10 @@ public static class SceneAutoReload
     {
         Reload(SceneManager.GetActiveScene(), "手动触发");
     }
+
+    #endregion
+
+    #region 私有方法
 
     static void Tick()
     {
@@ -129,5 +144,7 @@ public static class SceneAutoReload
             Debug.LogError($"[SceneAutoReload] 重新加载 {path} 失败：{e.Message}");
         }
     }
+
+    #endregion
 }
 #endif

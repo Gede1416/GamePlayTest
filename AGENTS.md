@@ -72,7 +72,7 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 - `Health` 是 2D/3D 无关的，其余脚本的维度假设见上表。
 - 私有字段**不加下划线前缀**（`routine` / `cells` / `mapManager`，不是 `_routine`）。
 - **属性标签横排一行**：同一个字段上的多个特性写在同一行，例如 `[Tooltip("攻击类型：近战 范围 1 / 远程 范围 3，都是 1 个目标")][SerializeField] AttackType attackType = AttackType.Melee;`（`[Header(...)]` 也照样接在同一行）。
-- 每个类里用 `// ---------- 名称 ----------` 标出四段（`属性` / `生命周期` / `公开方法` / `私有方法`），大段内部的语义小标题（如 `// ---------- 查询 ----------`）保留。
+- **代码分块用 `#region` / `#endregion`**：每个类里四段各一个 region（`属性` / `生命周期` / `公开方法` / `私有方法`），构造函数单独一个 `构造` region；`公开方法` 内部的语义子块（`查询` / `移动裁决` / `寻路` / `自检`）用**嵌套** region；region 与它包住的成员同缩进。方法体内部的注释块仍用 `// ---------- xxx ----------`（方法里不套 region）。只有一组公开静态方法的工厂类（`*PipelineFactory`）不用分块。
 - 需要可视化的逻辑（如网格划分）用 `OnDrawGizmosSelected` 画出来核对，不写单元测试。
 
 ## 已知缺口（用户明确跳过的）
@@ -102,7 +102,7 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 - **额外清理** ✅ 删掉 `ObjectMover` 组件：移动逻辑坍缩进阶段三 `MoverPathExecutor.Run()`（直接改实体坐标），速度改挂 `AutoPilot.speed`，本回合步数留在 `AutoPilot.ApplySteps` 供"远离"当预算，`Entity.Mover` 一并移除
 - **额外清理** ✅ 新增 `BattleManager`（战场统一管理）：把「加载 → 初始化」包成 `BuildBattle()`，另加 `ClearBattle()` 清场、`RebuildBattle()` = 清场 + 重新加载；`Entity.Init` 现在把地图也发给 `Attacker`
 - **初始化收拢** ✅ 地图 / 回合 / 攻击 / 生命 / 移动组件的初始化全部搬进 `Init()`，由上级调用（BattleManager → MapManager·Entity·TurnManager，Entity → Health·AutoPilot·Attacker），组件不再自带 `Awake` / `Start` 初始化，也不再 `FindObjectOfType` 找地图（地图一律由上级发下来）
-- **规范化** ✅ 全部脚本按用户给的顺序重排：**属性 → 生命周期 → 公开方法 → 私有方法**（各组内按调用顺序），属性标签横排一行；私有字段统一去掉下划线前缀，序列化字段补中文 Tooltip；删掉过期的 `BattlePrefabExporter`
+- **规范化** ✅ 全部脚本按用户给的顺序重排：**属性 → 生命周期 → 公开方法 → 私有方法**（各组内按调用顺序），属性标签横排一行；私有字段统一去掉下划线前缀，序列化字段补中文 Tooltip；删掉过期的 `BattlePrefabExporter`；分块统一用 `#region` / `#endregion`
 - 未做：Map 配置对象（用户说暂时不用）
 
 ## 版本管理

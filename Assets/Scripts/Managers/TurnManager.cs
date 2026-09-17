@@ -24,7 +24,7 @@ public enum TurnState
 /// </summary>
 public class TurnManager : MonoBehaviour
 {
-    // ---------- 属性 ----------
+    #region 属性
 
     [Header("数据")][Tooltip("参战实体列表")]
     public List<Entity> actors = new List<Entity>();
@@ -59,7 +59,9 @@ public class TurnManager : MonoBehaviour
     /// <summary>行动栈里还剩几个没行动（含已被跳过但要到出栈时才判断的）</summary>
     public int StackLeft => Mathf.Max(0, ActionStack.Count - cursor);
 
-    // ---------- 公开方法 ----------
+    #endregion
+
+    #region 公开方法
 
     /// <summary>
     /// 初始化：由 BattleManager 调用（回合管理器自己不用 Awake / Start）。
@@ -111,7 +113,9 @@ public class TurnManager : MonoBehaviour
         return null;
     }
 
-    // ---------- 私有方法 ----------
+    #endregion
+
+    #region 私有方法
 
     IEnumerator Run()
     {
@@ -139,6 +143,9 @@ public class TurnManager : MonoBehaviour
         State = TurnState.Finished;
         Debug.Log($"[TurnManager] {totalRounds} 回合跑完，结束");
     }
+
+    #endregion
+
 }
 
 /// <summary>TurnManager.Init 需要的数据：参战列表 / 回合数 / 行动间隔</summary>

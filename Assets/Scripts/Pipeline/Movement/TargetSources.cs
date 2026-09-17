@@ -8,7 +8,7 @@ using UnityEngine;
 /// <summary>靠近：走向距离最近的非己方单位，站到它四周离自己最近的那个空格上。</summary>
 public class ApproachNearestEnemy : ITargetSource
 {
-    // ---------- 属性 ----------
+    #region 属性
 
     readonly MapManager map;
     readonly Transform self;
@@ -16,7 +16,9 @@ public class ApproachNearestEnemy : ITargetSource
 
     static readonly Vector2Int[] Dirs = { Vector2Int.right, Vector2Int.left, Vector2Int.up, Vector2Int.down };
 
-    // ---------- 构造 ----------
+    #endregion
+
+    #region 构造
 
     /// <param name="team">自己的阵营（构造时取一次；阵营会变就重新构造一个）</param>
     public ApproachNearestEnemy(MapManager map, Transform self, int team)
@@ -26,7 +28,9 @@ public class ApproachNearestEnemy : ITargetSource
         this.team = team;
     }
 
-    // ---------- 公开方法 ----------
+    #endregion
+
+    #region 公开方法
 
     public bool TryGetTarget(out Vector2Int cell)
     {
@@ -55,7 +59,9 @@ public class ApproachNearestEnemy : ITargetSource
         return nearest != int.MaxValue;
     }
 
-    // ---------- 私有方法 ----------
+    #endregion
+
+    #region 私有方法
 
     /// <summary>敌人格子四周里，离自己最近的一个可进入格子</summary>
     static bool TrySpot(MapManager map, Vector2Int selfCell, Vector2Int enemy, out Vector2Int spot)
@@ -77,20 +83,24 @@ public class ApproachNearestEnemy : ITargetSource
 
         return best != int.MaxValue;
     }
-}
 
+    #endregion
+
+}
 
 /// <summary>远离：在"本回合走得到的格子"里，挑离最近的非己方单位最远的那个当落点。</summary>
 public class FleeNearestEnemy : ITargetSource
 {
-    // ---------- 属性 ----------
+    #region 属性
 
     readonly MapManager map;
     readonly Transform self;
     readonly int team;
     readonly Func<int> stepsLeft;      // 本回合可走步数（问 AutoPilot 要，别的段不拦步数）
 
-    // ---------- 构造 ----------
+    #endregion
+
+    #region 构造
 
     /// <param name="team">自己的阵营（构造时取一次；阵营会变就重新构造一个）</param>
     /// <param name="stepsLeft">本回合可走步数；返回 0 或负数视为不限（和 Entity.moveSteps 的 0 = 不限一致）</param>
@@ -102,7 +112,9 @@ public class FleeNearestEnemy : ITargetSource
         this.stepsLeft = stepsLeft;
     }
 
-    // ---------- 公开方法 ----------
+    #endregion
+
+    #region 公开方法
 
     // ponytail: 每次调用全图扫一遍找候选格；10×10 网格无所谓，格子大了要改成缓存。
     //           候选格用"曼哈顿距离 <= 剩余步数"的菱形筛（地图现在没有障碍数据，这样等价于可达）；
@@ -162,4 +174,7 @@ public class FleeNearestEnemy : ITargetSource
 
         return bestTravel != int.MaxValue;
     }
+
+    #endregion
+
 }

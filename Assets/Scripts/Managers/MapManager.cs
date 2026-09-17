@@ -10,7 +10,7 @@ using UnityEngine;
 /// </summary>
 public class MapManager : MonoBehaviour
 {
-    // ---------- 属性 ----------
+    #region 属性
 
     [Tooltip("地图物体：取其 Renderer 包围盒的 x / z 尺寸；没有 Renderer 则用它的缩放")]
     public GameObject map;
@@ -48,7 +48,9 @@ public class MapManager : MonoBehaviour
     /// <summary>网格所在高度 = 地图顶面 y</summary>
     public float GridY { get; private set; }
 
-    // ---------- 生命周期 ----------
+    #endregion
+
+    #region 生命周期
 
     // 选中物体时在 Scene 视图画出格子线 + 被占用的格子；不需要可整段删掉
     void OnDrawGizmosSelected()
@@ -71,7 +73,9 @@ public class MapManager : MonoBehaviour
                     Gizmos.DrawWireCube(CellToWorld(x, z), new Vector3(cellSize, 0.02f, cellSize));
     }
 
-    // ---------- 公开方法 ----------
+    #endregion
+
+    #region 公开方法
 
     /// <summary>
     /// 初始化：由 BattleManager 调用（地图组件自己不用 Awake / Start）。
@@ -153,7 +157,7 @@ public class MapManager : MonoBehaviour
         }
     }
 
-    // ---------- 查询 ----------
+    #region 查询
 
     /// <summary>格子里的实体 uuid：空 = Empty(0)，占用但没登记 = Unknown(-1)</summary>
     public int UuidAt(Vector2Int cell)
@@ -229,7 +233,9 @@ public class MapManager : MonoBehaviour
                               Mathf.FloorToInt((pos.z - MinXZ.y) / cellSize));
     }
 
-    // ---------- 移动裁决 ----------
+    #endregion
+
+    #region 移动裁决
 
     /// <summary>
     /// 移动指令裁决：从 from 沿 step 走一格。合法（界内且落点未被占用）就把地图数据从 from 移到落点
@@ -260,7 +266,9 @@ public class MapManager : MonoBehaviour
         if (id > Empty) positions[id] = from;
     }
 
-    // ---------- 寻路 ----------
+    #endregion
+
+    #region 寻路
 
     /// <summary>
     /// 寻路：从 from 到 to 的最短路径（四方向、每格等权 BFS），结果写进 path（不含起点）。
@@ -300,7 +308,9 @@ public class MapManager : MonoBehaviour
         return false;                            // 走不到
     }
 
-    // ---------- 自检（右键组件菜单可跑） ----------
+    #endregion
+
+    #region 自检（右键组件菜单可跑）
 
     /// <summary>自检：随便挑两个空格走一遍寻路，校验路径连续、可走、终点对得上</summary>
     [ContextMenu("自检：寻路")]
@@ -367,7 +377,11 @@ public class MapManager : MonoBehaviour
             : $"[MapManager] 自检不通过：占格 {occupied}，登记 {known}，positions {positions.Count}，byUuid {byUuid.Count}", this);
     }
 
-    // ---------- 私有方法 ----------
+    #endregion
+
+    #endregion
+
+    #region 私有方法
 
     /// <summary>物体的地面包围盒：优先取 Renderer，没有就退化成位置 + 缩放</summary>
     static Bounds GetBounds(GameObject go)
@@ -375,4 +389,7 @@ public class MapManager : MonoBehaviour
         var r = go.GetComponentInChildren<Renderer>();
         return r != null ? r.bounds : new Bounds(go.transform.position, go.transform.lossyScale);
     }
+
+    #endregion
+
 }

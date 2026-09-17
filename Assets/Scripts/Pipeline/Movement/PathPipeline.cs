@@ -31,18 +31,30 @@ public interface IPathExecutor
 /// <summary>寻路交给地图：BFS 实现在 MapManager.FindPath（界外和被占用的格子都不通）。</summary>
 public class BfsPathPlanner : IPathPlanner
 {
+    #region 属性
+
     readonly MapManager map;
+
+    #endregion
+
+    #region 构造
 
     public BfsPathPlanner(MapManager map)
     {
         this.map = map;
     }
 
+    #endregion
+
+    #region 公开方法
+
     public bool TryBuild(Vector2Int start, Vector2Int goal, List<Vector2Int> path)
     {
         if (map == null) { path.Clear(); return false; }
         return map.FindPath(start, goal, path);
     }
+
+    #endregion
 }
 
 
@@ -55,9 +67,15 @@ public class BfsPathPlanner : IPathPlanner
 /// </summary>
 public class MoverPathExecutor : IPathExecutor
 {
+    #region 属性
+
     readonly MapManager map;
     readonly Transform self;
     readonly float speed;
+
+    #endregion
+
+    #region 构造
 
     /// <param name="self">要挪的物体（实体自己的 Transform）</param>
     /// <param name="speed">移动速度（世界单位/秒）；走一格用时 = 地图格子边长 / speed</param>
@@ -67,6 +85,10 @@ public class MoverPathExecutor : IPathExecutor
         this.self = self;
         this.speed = speed;
     }
+
+    #endregion
+
+    #region 公开方法
 
     public IEnumerator Run(List<Vector2Int> path)
     {
@@ -91,4 +113,6 @@ public class MoverPathExecutor : IPathExecutor
             self.position = target;
         }
     }
+
+    #endregion
 }

@@ -6,7 +6,7 @@ using UnityEngine;
 /// </summary>
 public class Health : MonoBehaviour
 {
-    // ---------- 属性 ----------
+    #region 属性
 
     [Tooltip("生命值上限；Awake 时把当前值补满")]
     public float maxHealth = 100f;
@@ -20,7 +20,9 @@ public class Health : MonoBehaviour
     /// <summary>是否已阵亡</summary>
     public bool IsDead => Current <= 0f;
 
-    // ---------- 公开方法 ----------
+    #endregion
+
+    #region 公开方法
 
     /// <summary>初始化：由 Entity.Init 调用（组件自己不靠 Awake 干活），把当前值补满</summary>
     public void Init() => Current = maxHealth;
@@ -33,4 +35,7 @@ public class Health : MonoBehaviour
         Current = Mathf.Max(0f, Current - amount);
         if (IsDead) this.gameObject.SetActive(false);
     }
+
+    #endregion
+
 }

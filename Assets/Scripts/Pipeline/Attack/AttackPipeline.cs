@@ -32,7 +32,6 @@ public interface ICooldown
     void TickTurn();
 }
 
-
 // ============ 阶段一：释放判断 ============
 
 /// <summary>默认的释放判断：施法者活着 + 冷却好了（冷却自己数）</summary>
@@ -60,7 +59,6 @@ public class CooldownCastCheck : ICastCheck, ICooldown
         return CooldownLeft <= 0;
     }
 }
-
 
 // ============ 阶段二：目标获取 ============
 
@@ -100,12 +98,15 @@ public static class TargetPicker
         return true;
     }
 
-    // ---------- 私有方法 ----------
+    #region 私有方法
 
     static int Dist(MapManager map, Vector2Int from, Entity e)
     {
         return MapManager.Manhattan(from, map.WorldToCell(e.transform.position));
     }
+
+    #endregion
+
 }
 
 /// <summary>近战目标获取：攻击范围 1 格、1 个目标</summary>
@@ -145,7 +146,6 @@ public class RangedTargetFinder : ITargetFinder
         return TargetPicker.Pick(map, caster, Range, TargetCount, targets);
     }
 }
-
 
 // ============ 阶段三：技能释放 ============
 

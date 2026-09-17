@@ -12,7 +12,7 @@ using UnityEngine;
 /// </summary>
 public class AutoPilot : MonoBehaviour
 {
-    // ---------- 属性 ----------
+    #region 属性
 
     [Tooltip("移动管线类型（阶段一）：靠近 / 远离")][SerializeField] TargetSourceType targetSourceType = TargetSourceType.ApproachNearestEnemy;
 
@@ -55,7 +55,9 @@ public class AutoPilot : MonoBehaviour
         }
     }
 
-    // ---------- 生命周期 ----------
+    #endregion
+
+    #region 生命周期
 
     void OnDisable() => Stop();
 
@@ -73,7 +75,9 @@ public class AutoPilot : MonoBehaviour
         }
     }
 
-    // ---------- 公开方法 ----------
+    #endregion
+
+    #region 公开方法
 
     /// <summary>初始化：由 Entity.Init 调用（地图由上级发下来），这里只找身上的 Health 并装配三段</summary>
     public void Init()
@@ -130,7 +134,9 @@ public class AutoPilot : MonoBehaviour
     /// <summary>记下本回合可走步数（0 = 不限），Entity 开局与每回合开始时调它</summary>
     public void ApplySteps(int steps) => stepsThisTurn = steps;
 
-    // ---------- 私有方法 ----------
+    #endregion
+
+    #region 私有方法
 
     [ContextMenu("跑一次管线")]
     void RunPipelineMenu() => RunPipeline();
@@ -141,4 +147,7 @@ public class AutoPilot : MonoBehaviour
         yield return Executor.Run(path);
         routine = null;
     }
+
+    #endregion
+
 }

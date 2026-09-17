@@ -13,7 +13,7 @@ using UnityEngine;
 /// </summary>
 public class BattleManager : MonoBehaviour
 {
-    // ---------- 属性 ----------
+    #region 属性
 
     [Header("预制体路径（先按文件名走 Resources，编辑器里再按资源路径加载）")][Tooltip("地图预制体：里面挂着 MapManager 与各实体的初始位置列表")]
     [SerializeField] string mapPath;
@@ -31,11 +31,15 @@ public class BattleManager : MonoBehaviour
     TurnManager turnManager;
     List<Entity> entities;
 
-    // ---------- 生命周期 ----------
+    #endregion
+
+    #region 生命周期
 
     void Awake() => BuildBattle();      // 进播放就加载初始化一次，之后随时可以 RebuildBattle()
 
-    // ---------- 公开方法 ----------
+    #endregion
+
+    #region 公开方法
 
     /// <summary>
     /// 整场战斗走一遍：清理资源 -> 加载绑定缓存 -> 初始化。
@@ -73,7 +77,9 @@ public class BattleManager : MonoBehaviour
         turnManager = null;
     }
 
-    // ---------- 私有方法 ----------
+    #endregion
+
+    #region 私有方法
 
     /// <summary>
     /// 2. 资源加载 + 绑定 + 组件缓存：按路径加载预制体并实例化，取到 MapManager / Entity / TurnManager 缓存起来，
@@ -82,6 +88,7 @@ public class BattleManager : MonoBehaviour
     bool LoadBattle()
     {
         // ---------- 地图 ----------
+
         var mapPrefab = LoadPrefab(mapPath);
         if (mapPrefab == null) return false;                // 加载不到地图就没法继续（LoadPrefab 已经报错）
 
@@ -93,6 +100,7 @@ public class BattleManager : MonoBehaviour
         }
 
         // ---------- 实体 ----------
+
         entities = new List<Entity>();
 
         foreach (var path in entityPaths)
@@ -117,6 +125,7 @@ public class BattleManager : MonoBehaviour
         mapManager.entities = entities.ConvertAll(e => e.gameObject);   // 顺序对应 spawnPoints
 
         // ---------- 回合 ----------
+
         var turnPrefab = LoadPrefab(turnPath);
         if (turnPrefab == null) return false;
 
@@ -169,4 +178,7 @@ public class BattleManager : MonoBehaviour
 
         return go;
     }
+
+    #endregion
+
 }

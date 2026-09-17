@@ -10,7 +10,7 @@ using UnityEngine;
 [RequireComponent(typeof(Entity))]
 public class Attacker : MonoBehaviour
 {
-    // ---------- 属性 ----------
+    #region 属性
 
     [Tooltip("攻击类型：近战 范围 1 / 远程 范围 3，都是 1 个目标")][SerializeField] AttackType attackType = AttackType.Melee;
 
@@ -48,7 +48,9 @@ public class Attacker : MonoBehaviour
         }
     }
 
-    // ---------- 公开方法 ----------
+    #endregion
+
+    #region 公开方法
 
     /// <summary>初始化：由 Entity.Init 调用（地图由上级发下来），这里只找身上的 Entity 并装配三段</summary>
     public void Init()
@@ -82,7 +84,9 @@ public class Attacker : MonoBehaviour
         (CastCheck as ICooldown)?.TickTurn();
     }
 
-    // ---------- 私有方法 ----------
+    #endregion
+
+    #region 私有方法
 
     [ContextMenu("跑一次攻击管线")]
     void RunMenu()
@@ -92,4 +96,7 @@ public class Attacker : MonoBehaviour
             ? $"[{name}] {attackType} 命中 {targets.Count} 个目标"
             : $"[{name}] {attackType} 没放出来（前置条件不满足 / 范围内没目标）");
     }
+
+    #endregion
+
 }
