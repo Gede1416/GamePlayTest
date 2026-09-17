@@ -5,7 +5,8 @@ using UnityEngine;
 /// 地图管理器（3D 俯视角，y 为高度）：
 /// 按地图 GameObject 的长宽（x / z）和单位距离划分 XZ 网格。
 /// 地图数据有两份索引：**格子→实体 uuid 的二维图**（cells），以及 **uuid→二维位置 / uuid→实体** 的字典；
-/// 占用判定、坐标换算、以后寻路都从这里问（外部只读，改数据只走 TryMove / CancelMove / SyncOccupied）。
+/// 占用判定、坐标换算、以后寻路都从这里问（外部只读，改数据只走 TryMove / CancelMove / SyncOccupied / ReleaseEntity）。
+/// 订阅了死亡消息：单位阵亡就把它的格子放开（见 OnEntityDied）。
 /// 成员顺序：属性 → 生命周期 → 公开方法 → 私有方法（各组内按调用顺序）。
 /// </summary>
 public class MapManager : MonoBehaviour
@@ -85,11 +86,17 @@ public class MapManager : MonoBehaviour
     {
         Build();
         ResetEntities();
+
+        // 先退订再订，重复 Init 也不会订两遍
+        EventPipeline.Unsubscribe(BattleEventType.EntityDied, OnEntityDied);
+        EventPipeline.Subscribe(BattleEventType.EntityDied, OnEntityDied);
     }
 
     /// <summary>清理：放掉地图数据与实体列表（由 BattleManager.ClearBattle 调；spawnPoints 是配置，保留）</summary>
     public void Clear()
     {
+        EventPipeline.Unsubscribe(BattleEventType.EntityDied, OnEntityDied);
+
         cells = null;
         positions.Clear();
         byUuid.Clear();
@@ -164,6 +171,30 @@ public class MapManager : MonoBehaviour
             positions[entity.Uuid] = cell;
             byUuid[entity.Uuid] = entity;
         }
+    }
+
+    /// <summary>
+    /// 把一个单位从地图登记里摘掉并放开它占的格子（阵亡时走这里，物体本身由上级销毁）。
+    /// 摘掉之后它不再是目标、也不再挡路；下次 SyncOccupied 也不会把它算回来。
+    /// </summary>
+    public void ReleaseEntity(Entity entity)
+    {
+        if (entity == null) return;
+
+        int uuid = entity.Uuid;
+        if (cells != null && positions.TryGetValue(uuid, out var cell) &&
+            InBounds(cell) && cells[cell.x, cell.y] == uuid)
+            cells[cell.x, cell.y] = Empty;
+
+        positions.Remove(uuid);
+        byUuid.Remove(uuid);
+
+        // 没登记 uuid 的单位格子记的是 Unknown，按坐标放开
+        var pos = WorldToCell(entity.transform.position);
+        if (cells != null && InBounds(pos) && cells[pos.x, pos.y] == Unknown)
+            cells[pos.x, pos.y] = Empty;
+
+        entities.Remove(entity.gameObject);
     }
 
     #region 查询
@@ -391,6 +422,9 @@ public class MapManager : MonoBehaviour
     #endregion
 
     #region 私有方法
+
+    /// <summary>收到死亡消息：把阵亡单位从地图登记里摘掉，放开它占的格子</summary>
+    void OnEntityDied(BattleEvent e) => ReleaseEntity(e.entity);
 
     /// <summary>物体的地面包围盒：优先取 Renderer，没有就退化成位置 + 缩放</summary>
     static Bounds GetBounds(GameObject go)
