@@ -54,14 +54,6 @@ public class TurnManager : MonoBehaviour
     /// <summary>行动栈里还剩几个没行动（含已被跳过但要到出栈时才判断的）</summary>
     public int StackLeft => Mathf.Max(0, ActionStack.Count - cursor);
 
-    int cursor;             // 行动栈里下一位
-    Coroutine routine;
-
-    void Start()
-    {
-        if (autoStart) StartBattle();
-    }
-
     /// <summary>
     /// 初始化：不传 data 就用场景里配好的（Inspector 字段）；
     /// 传了 data 就用它覆盖参战列表、回合数与间隔。
@@ -110,6 +102,16 @@ public class TurnManager : MonoBehaviour
             if (actor != null && actor.gameObject.activeInHierarchy) return actor;
         }
         return null;
+    }
+
+    // ---------- 私有 ----------
+
+    int cursor;             // 行动栈里下一位
+    Coroutine routine;
+
+    void Start()
+    {
+        if (autoStart) StartBattle();
     }
 
     IEnumerator Run()

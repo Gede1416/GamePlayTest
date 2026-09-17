@@ -17,7 +17,7 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 - `Assets/Scripts/Components/`：功能组件（`Health`）
 - `Assets/Scripts/Pipeline/Movement/`：移动管线（`AutoPilot` / `PathPipeline` / `TargetSources` / `PathPipelineFactory`）
 - `Assets/Scripts/Pipeline/Attack/`：攻击管线（`Attacker` / `AttackPipeline` / `AttackPipelineFactory`）
-- `Assets/Editor/`：编辑器工具（`SceneAutoReload`、`BattlePrefabExporter`）
+- `Assets/Editor/`：编辑器工具（`SceneAutoReload`）
 
 | 文件 | 职责 | 对外接口 |
 |---|---|---|
@@ -52,7 +52,6 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
   - `turn1.prefab`：`TurnManager`（`totalRounds` 5、`turnDelay` 0.2、`autoStart` 开；`actors` 也是 2 个空槽，由 `BattleManager` 填）
   - 四个预制体里的 `map` 字段全是空的：运行时 `BattleManager` 把地图实例发给 `Entity`，`Entity.Init` 再转给 AutoPilot / Attacker
 - 编辑器工具 `Assets/Editor/SceneAutoReload.cs`：磁盘上的 `.unity` 一变就自动重新加载当前场景（内存里未保存的版本先另存到 `Temp/编辑器未保存版本_*.unity`）；菜单 `Tools/场景以磁盘为准` 开关（默认开）、`Tools/重新加载当前场景（以磁盘为准）` 手动触发；播放中不动场景
-- `Assets/Editor/BattlePrefabExporter.cs` **已过期**：它按名字找场景里的 `Ranger` / `ground` / `TurnManager` 存成预制体，而场景里这些物体已经没了（会打"找不到"的警告）。预制体现在是手工维护的——要么删掉这个工具，要么把它改成按 `BattleManager` 的配置导出。`Temp/battle-prefabs.done` 标记还在，所以它不会自动跑
 
 ## 约定
 
@@ -65,6 +64,8 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 - **地图数据**：格子→uuid 二维图与 uuid→位置/实体 字典都由 `MapManager` 维护，外部只读查询（`UuidAt` / `EntityAt` / `EntitiesAt` / `EntityOf` / `TryGetCell`）；要改只能走 `TryMove` / `CancelMove` / `SyncOccupied`。
 - **数据所有权**：一份数据只有一个所有者。身份(uuid) / 先攻 / 回合步数 / 管线类型 归 `Entity`；生命值 + 阵营归 `Health`；本回合可走步数（`AutoPilot.ApplySteps`，只有"远离"挑落点用）、动画中（`AutoPilot.IsFollowing`）、冷却剩余（`Attacker`）属于各自组件的运行期状态。`Entity` 是对外唯一门面（`Hp` / `MaxHp` / `IsDead` / `Team` / `TakeDamage()` 转发），**不要把组件自己的属性搬进 Entity**（会变成两份真相 + 组件不能单独工作）。
 - `Health` 是 2D/3D 无关的，其余脚本的维度假设见上表。
+- 私有字段**不加下划线前缀**（`routine` / `cells` / `mapManager`，不是 `_routine`）；序列化字段放数据区，纯运行期状态放文件末尾的私有段。
+- 每个类里用 `// ---------- 名称 ----------` 分段（如 `// ---------- 私有 ----------`），私有字段、Unity 生命周期方法与私有辅助函数统一收在最后那一段。
 - 需要可视化的逻辑（如网格划分）用 `OnDrawGizmosSelected` 画出来核对，不写单元测试。
 
 ## 已知缺口（用户明确跳过的）
@@ -77,7 +78,7 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 - `TurnManager`：行动内容写死在 `Entity.TakeTurnRoutine()` 里（固定 攻击-移动-攻击，没做成可配置的行动序列；换顺序就改它）；状态只能轮询 `State` / `IsFinished`，没有回合开始/结束事件；行动栈每回合重建一次，**回合中不重排**（先攻变了要等下回合）；先攻相同时按列表顺序而不掷骰；没有"跳过/延后/守卫"这类规则
 - `Entity` / `PathPipelineFactory`：先攻只有 `Entity.initiative` 一份（`TurnManager` 的排序和行动都走 Entity）；`moveSteps` 仍是 Entity 的数据，靠 `AutoPilot.ApplySteps(moveSteps)` 存进 AutoPilot（只有"远离"挑落点时当预算，阶段三不扣步数）；移动管线的装配在 `AutoPilot.Build()`（`Entity.Init` 只把地图发下去再调它），每调一次就重建三段（正常运行中重复调不会打断正在走的协程）
 - `Attacker`：已接进回合（`Entity.TakeTurnRoutine()` 里攻击-移动-攻击，回合开始会 `TickTurn()` 推进冷却）；目标获取从 `MapManager.entities` 里找，只认"挂了 `Entity` 且有 `Health`"的单位、按曼哈顿距离排序；`DamageCaster` 只扣血（没有击退/buff/动画表现）；远程没有视线/弹道判定（只看格子距离）；近战/远程的范围是 `AttackPipeline.cs` 里的常量（现在 1 / 3，改小过一次），`AttackPipelineFactory` 只按枚举选实现（碰触体那套 `Attack` 与 `SkillManager` 都已删除，攻击只有攻击管线一条路）
-- 预制体：`Assets/prefab/*.prefab` 由 `BattleManager` 在运行时实例化（场景里只有 BattleManager 和 map_pos）；跨对象引用进不了预制体，所以 `map` / `entities` / `actors` 这些槽由 `BattleManager` 填（见「场景」一节）；预制体目前是**手工维护**的，改了结构要自己存（`BattlePrefabExporter` 已过期，见「场景」一节）
+- 预制体：`Assets/prefab/*.prefab` 由 `BattleManager` 在运行时实例化（场景里只有 BattleManager 和 map_pos）；跨对象引用进不了预制体，所以 `map` / `entities` / `actors` 这些槽由 `BattleManager` 填（见「场景」一节）；预制体目前是**手工维护**的，改了结构要自己存（原来那个按名字导出的 `BattlePrefabExporter` 已经删掉）
 - `Entity.uuid`：在预制体上手填（`Ranger.prefab` uuid 1、`Melee.prefab` uuid 2）；`SyncOccupied()` 现在会查重但**只警告不修正**（重复时后者这次被跳过），uuid 分配器还没做
 - `BattleManager`：预制体靠 Inspector 里手填的**路径字符串**加载——`LoadPrefab` 先按文件名走 `Resources.Load`，编辑器里再退回 `AssetDatabase.LoadAssetAtPath`，所以现在不改目录就能跑，但**打包后必须把预制体放进某个 `Resources` 目录**；清场用 `Destroy`（当帧末尾才真销毁，重开那一帧新旧对象并存，靠显式发地图引用避开旧地图）；实体初始位置完全依赖地图预制体上的 `spawnPoints`（数量不够的实体留在被实例化的位置）；`BuildBattle()` 只装不打，开打靠 turn 预制体的 `autoStart` 或外部调 `StartBattle()`；目前没有任何 UI / 快捷键触发 `StartBattle` / `RebuildBattle`（NavTest 那套测试按钮已随场景重构删掉）
 - 脚本都还没在播放模式下跑过（两个角色都没有 Rigidbody，移动是直接写 `transform.position`）
@@ -90,9 +91,10 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 - **P4 回合** ✅ `TurnManager`：行动栈 `ActionStack`（每回合按先攻重建，`PopNext()` 出栈）+ `TurnState` 状态 + `Init(TurnInitData)`
 - **P5 移动管线「接近」** — 用户确认是笔误（现有 靠近/远离 即全部），未做
 - **P6 收尾** ✅ 场景 / 预制体同步 + 本文档校对
-- **额外清理** ✅ 删掉旧技能系统的残留：`SkillManager`、碰触体 `Attack` 与 4 个 `skill_*` 子物体（攻击只剩攻击管线一条路）；预制体等 Unity 重载后由 `BattlePrefabExporter` 重新导出
+- **额外清理** ✅ 删掉旧技能系统的残留：`SkillManager`、碰触体 `Attack` 与 4 个 `skill_*` 子物体（攻击只剩攻击管线一条路）；预制体当时由 `BattlePrefabExporter` 重新导出（该工具后来随场景改造成预制体加载而删除）
 - **额外清理** ✅ 删掉 `ObjectMover` 组件：移动逻辑坍缩进阶段三 `MoverPathExecutor.Run()`（直接改实体坐标），速度改挂 `AutoPilot.speed`，本回合步数留在 `AutoPilot.ApplySteps` 供"远离"当预算，`Entity.Mover` 一并移除
 - **额外清理** ✅ 新增 `BattleManager`（战场统一管理）：把「加载 → 初始化」包成 `BuildBattle()`，另加 `ClearBattle()` 清场、`RebuildBattle()` = 清场 + 重新加载；`Entity.Init` 现在把地图也发给 `Attacker`
+- **规范化** ✅ 全部脚本按「公开在前、私有在后、生命周期与私有辅助收尾」重排（`Health` / `TurnManager` / `MapManager` / `Attacker` / `TargetSources` / `BattleManager`），私有字段统一去掉下划线前缀，序列化字段补中文 Tooltip；删掉过期的 `BattlePrefabExporter`
 - 未做：Map 配置对象（用户说暂时不用）
 
 ## 版本管理

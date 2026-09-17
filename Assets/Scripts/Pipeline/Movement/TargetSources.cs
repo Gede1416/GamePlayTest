@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 // 阶段一（获得目标点）的两个实现。依赖在构造时注入，距离一律用曼哈顿距离（MapManager.Manhattan）。
@@ -17,8 +18,6 @@ public class ApproachNearestEnemy : ITargetSource
         this.self = self;
         this.team = team;
     }
-
-    static readonly Vector2Int[] Dirs = { Vector2Int.right, Vector2Int.left, Vector2Int.up, Vector2Int.down };
 
     public bool TryGetTarget(out Vector2Int cell)
     {
@@ -46,6 +45,10 @@ public class ApproachNearestEnemy : ITargetSource
 
         return nearest != int.MaxValue;
     }
+
+    // ---------- 私有 ----------
+
+    static readonly Vector2Int[] Dirs = { Vector2Int.right, Vector2Int.left, Vector2Int.up, Vector2Int.down };
 
     /// <summary>敌人格子四周里，离自己最近的一个可进入格子</summary>
     static bool TrySpot(MapManager map, Vector2Int selfCell, Vector2Int enemy, out Vector2Int spot)
@@ -76,11 +79,11 @@ public class FleeNearestEnemy : ITargetSource
     readonly MapManager map;
     readonly Transform self;
     readonly int team;
-    readonly System.Func<int> stepsLeft;      // 本回合可走步数（问 AutoPilot 要，别的段不拦步数）
+    readonly Func<int> stepsLeft;      // 本回合可走步数（问 AutoPilot 要，别的段不拦步数）
 
     /// <param name="team">自己的阵营（构造时取一次；阵营会变就重新构造一个）</param>
     /// <param name="stepsLeft">本回合可走步数；返回 0 或负数视为不限（和 Entity.moveSteps 的 0 = 不限一致）</param>
-    public FleeNearestEnemy(MapManager map, Transform self, int team, System.Func<int> stepsLeft)
+    public FleeNearestEnemy(MapManager map, Transform self, int team, Func<int> stepsLeft)
     {
         this.map = map;
         this.self = self;

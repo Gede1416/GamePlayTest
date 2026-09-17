@@ -38,10 +38,6 @@ public class MapManager : MonoBehaviour
     readonly Dictionary<int, Vector2Int> positions = new();    // uuid -> 二维位置
     readonly Dictionary<int, Entity> byUuid = new();           // uuid -> 实体
 
-    void Awake() => Build();
-
-    void Start() => ResetEntities();
-
     /// <summary>重新构建网格并放好实体（外部想从头来一遍时调它）</summary>
     public void Init()
     {
@@ -195,12 +191,6 @@ public class MapManager : MonoBehaviour
                               Mathf.FloorToInt((pos.z - MinXZ.y) / cellSize));
     }
 
-    static Bounds GetBounds(GameObject go)
-    {
-        var r = go.GetComponentInChildren<Renderer>();
-        return r != null ? r.bounds : new Bounds(go.transform.position, go.transform.lossyScale);
-    }
-
     /// <summary>
     /// 移动指令裁决：从 from 沿 step 走一格。合法（界内且落点未被占用）就把地图数据从 from 移到落点
     /// （二维图 + uuid→位置），并用 to 返回落点格；不合法返回 false 且不动任何数据。
@@ -231,8 +221,6 @@ public class MapManager : MonoBehaviour
     }
 
     // ---------- 寻路 ----------
-
-    static readonly Vector2Int[] Dirs = { Vector2Int.right, Vector2Int.left, Vector2Int.up, Vector2Int.down };
 
     /// <summary>
     /// 寻路：从 from 到 to 的最短路径（四方向、每格等权 BFS），结果写进 path（不含起点）。
@@ -335,6 +323,21 @@ public class MapManager : MonoBehaviour
         Debug.Log(ok
             ? $"[MapManager] 自检通过：占格 {occupied}（登记 uuid {known}），positions/byUuid = {positions.Count}/{byUuid.Count}"
             : $"[MapManager] 自检不通过：占格 {occupied}，登记 {known}，positions {positions.Count}，byUuid {byUuid.Count}", this);
+    }
+
+    // ---------- 私有 ----------
+
+    static readonly Vector2Int[] Dirs = { Vector2Int.right, Vector2Int.left, Vector2Int.up, Vector2Int.down };
+
+    void Awake() => Build();
+
+    void Start() => ResetEntities();
+
+    /// <summary>物体的地面包围盒：优先取 Renderer，没有就退化成位置 + 缩放</summary>
+    static Bounds GetBounds(GameObject go)
+    {
+        var r = go.GetComponentInChildren<Renderer>();
+        return r != null ? r.bounds : new Bounds(go.transform.position, go.transform.lossyScale);
     }
 
     // 选中物体时在 Scene 视图画出格子线 + 被占用的格子；不需要可整段删掉

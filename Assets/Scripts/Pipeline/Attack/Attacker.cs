@@ -44,16 +44,6 @@ public class Attacker : MonoBehaviour
         }
     }
 
-    Entity self;
-
-    void Awake()
-    {
-        self = GetComponent<Entity>();
-        if (map == null) map = FindObjectOfType<MapManager>();
-
-        Build();
-    }
-
     /// <summary>按当前攻击类型装配三段（工厂造接口，这里只负责装上；也可以外部塞别的实现进来）</summary>
     public void Build()
     {
@@ -77,6 +67,18 @@ public class Attacker : MonoBehaviour
     public void TickTurn()
     {
         (CastCheck as ICooldown)?.TickTurn();
+    }
+
+    // ---------- 私有 ----------
+
+    Entity self;
+
+    void Awake()
+    {
+        self = GetComponent<Entity>();
+        if (map == null) map = FindObjectOfType<MapManager>();
+
+        Build();
     }
 
     [ContextMenu("跑一次攻击管线")]

@@ -9,14 +9,22 @@ using UnityEngine;
 /// </summary>
 public class BattleManager : MonoBehaviour
 {
-    [SerializeField] private string mapPath;
-    [SerializeField] private string turnPath;
-    [SerializeField] private List<string> entityPaths = new();
-    [SerializeField] private Transform mapPos;
+    [Header("预制体路径（先按文件名走 Resources，编辑器里再按资源路径加载）")]
+    [Tooltip("地图预制体：里面挂着 MapManager 与各实体的初始位置列表")]
+    [SerializeField] string mapPath;
 
-    private MapManager _mapManager;
-    private TurnManager _turnManager;
-    private List<Entity> _entities;
+    [Tooltip("回合控制器预制体：里面有回合数 / 行动间隔 / autoStart")]
+    [SerializeField] string turnPath;
+
+    [Tooltip("参战实体预制体列表，顺序对应地图上的初始位置列表")]
+    [SerializeField] List<string> entityPaths = new();
+
+    [Tooltip("加载出来的对象都挂到它下面；留空就放场景根")]
+    [SerializeField] Transform mapPos;
+
+    MapManager mapManager;
+    TurnManager turnManager;
+    List<Entity> entities;
 
     /// <summary>
     /// 加载 + 初始化整场战斗（开局与 RebuildBattle 都走它，开头先清场所以可以反复调）。
@@ -30,15 +38,15 @@ public class BattleManager : MonoBehaviour
         var mapPrefab = LoadPrefab(mapPath);
         if (mapPrefab == null) return;                       // 加载不到地图就没法继续（LoadPrefab 已经报错）
 
-        _mapManager = InstantiateAt(mapPrefab).GetComponent<MapManager>();
-        if (_mapManager == null)
+        mapManager = InstantiateAt(mapPrefab).GetComponent<MapManager>();
+        if (mapManager == null)
         {
             Debug.LogError($"[BattleManager] {mapPath} 上没有 MapManager 组件", this);
             return;
         }
 
         // ---------- 实体 ----------
-        _entities = new List<Entity>();
+        entities = new List<Entity>();
         var entityObjects = new List<GameObject>();
 
         foreach (var path in entityPaths)
@@ -56,38 +64,38 @@ public class BattleManager : MonoBehaviour
             }
 
             // 地图引用直接发下去：别让组件自己 FindObjectOfType（重开时可能找到正在销毁的旧地图）
-            entity.map = _mapManager;
-            _entities.Add(entity);
+            entity.map = mapManager;
+            entities.Add(entity);
             entityObjects.Add(go);
         }
 
-        _mapManager.entities = entityObjects;                // 顺序对应 spawnPoints
-        _mapManager.Init();                                  // 建网格 + 摆到初始位置 + 重建占用
-        foreach (var entity in _entities) entity.Init();      // 各自按预制体数据装配管线
+        mapManager.entities = entityObjects;                // 顺序对应 spawnPoints
+        mapManager.Init();                                  // 建网格 + 摆到初始位置 + 重建占用
+        foreach (var entity in entities) entity.Init();      // 各自按预制体数据装配管线
 
         // ---------- 回合 ----------
         var turnPrefab = LoadPrefab(turnPath);
         if (turnPrefab == null) return;
 
-        _turnManager = InstantiateAt(turnPrefab).GetComponent<TurnManager>();
-        if (_turnManager == null)
+        turnManager = InstantiateAt(turnPrefab).GetComponent<TurnManager>();
+        if (turnManager == null)
         {
             Debug.LogError($"[BattleManager] {turnPath} 上没有 TurnManager 组件", this);
             return;
         }
 
-        _turnManager.Init(new TurnInitData
+        turnManager.Init(new TurnInitData
         {
-            actors = _entities,
-            totalRounds = _turnManager.totalRounds,          // 回合数与间隔沿用预制体上配的
-            turnDelay = _turnManager.turnDelay,
+            actors = entities,
+            totalRounds = turnManager.totalRounds,          // 回合数与间隔沿用预制体上配的
+            turnDelay = turnManager.turnDelay,
         });
     }
 
     /// <summary>开打（回合信息在 BuildBattle 里已经装好）</summary>
     public void StartBattle()
     {
-        if (_turnManager != null) _turnManager.StartBattle();
+        if (turnManager != null) turnManager.StartBattle();
     }
 
     /// <summary>清场重来：清掉当前加载的全部对象，再加载初始化一遍</summary>
@@ -96,17 +104,17 @@ public class BattleManager : MonoBehaviour
     /// <summary>清掉加载出来的地图 / 实体 / 回合控制器（先让回合停手再销毁）</summary>
     public void ClearBattle()
     {
-        if (_turnManager != null) _turnManager.StopBattle();
+        if (turnManager != null) turnManager.StopBattle();
 
-        if (_mapManager != null) Destroy(_mapManager.gameObject);
-        if (_turnManager != null) Destroy(_turnManager.gameObject);
-        if (_entities != null)
-            foreach (var entity in _entities)
+        if (mapManager != null) Destroy(mapManager.gameObject);
+        if (turnManager != null) Destroy(turnManager.gameObject);
+        if (entities != null)
+            foreach (var entity in entities)
                 if (entity != null) Destroy(entity.gameObject);
 
-        _entities = new List<Entity>();
-        _mapManager = null;
-        _turnManager = null;
+        entities = new List<Entity>();
+        mapManager = null;
+        turnManager = null;
     }
 
     // ---------- 私有 ----------
