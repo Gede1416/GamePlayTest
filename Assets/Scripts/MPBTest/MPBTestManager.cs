@@ -390,7 +390,7 @@ public class MPBTestManager : MonoBehaviour
     /// <summary>左上角面板：模式 / 数量 / 开关 / 实时读数 / 对照表。文字用英文——默认字体没有中文字形</summary>
     void DrawHud()
     {
-        GUILayout.BeginArea(new Rect(10f, 10f, 520f, 500f), GUI.skin.box);
+        GUILayout.BeginArea(new Rect(10f, 10f, 520f, 560f), GUI.skin.box);
 
         GUILayout.Label("MaterialPropertyBlock / Batching Test   [Built-in RP: no SRP Batcher in this project]");
         GUILayout.Label($"count {CountLadder[countIndex]}    static batch {(staticBatch ? "ON" : "OFF")}    " +
