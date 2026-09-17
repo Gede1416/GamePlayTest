@@ -1,17 +1,28 @@
 using UnityEngine;
+using UnityEngine.UI;
 
 /// <summary>
-/// 伤害数字：挂在被打实体的 UI 点位下，一边往上飘一边淡出，飘完自己销毁。
-/// 由 BattleUIManager 收到伤害消息时创建并调 Init。
+/// 伤害数字：外观在预制体里做好（世界空间 Canvas + 一个 Text），这里只负责写数字、
+/// 让它一边往上飘一边淡出，飘完自毁。
+/// 由 BattleUIManager 在被打实体的 UI 点位下实例化预制体后调 Init。
 /// 成员顺序：属性 → 生命周期 → 公开方法 → 私有方法（各组内按调用顺序）。
 /// </summary>
 public class DamagePopup : MonoBehaviour
 {
     #region 属性
 
-    TextMesh label;         // 数字本体（同一个物体上）
-    float rise = 1f;        // 往上飘多高
-    float life = 0.9f;      // 显示多久
+    [Tooltip("数字文字（预制体里接好）")]
+    [SerializeField] Text label;
+
+    [Tooltip("往上飘多高（世界单位）")]
+    [SerializeField] float rise = 1f;
+
+    [Tooltip("显示多久（秒）")]
+    [SerializeField] float life = 0.9f;
+
+    [Tooltip("起始高度（相对实体的 UI 点位）")]
+    [SerializeField] float startHeight = 0.25f;
+
     float age;
     Vector3 start;
 
@@ -22,6 +33,9 @@ public class DamagePopup : MonoBehaviour
     void Update()
     {
         age += Time.deltaTime;
+
+        var cam = Camera.main;                      // 世界空间 Canvas 是个平面，转过去才不会看成一条线
+        if (cam != null) transform.rotation = cam.transform.rotation;
 
         float t = life > 0f ? Mathf.Clamp01(age / life) : 1f;
         transform.localPosition = start + Vector3.up * (rise * t);
@@ -34,17 +48,12 @@ public class DamagePopup : MonoBehaviour
 
     #region 公开方法
 
-    /// <summary>初始化：写数字 + 记下起点与参数（由 BattleUIManager 调）</summary>
-    public void Init(float amount, float rise, float life)
+    /// <summary>初始化：写数字 + 记下起点（由 BattleUIManager 实例化后调）</summary>
+    public void Init(float amount)
     {
-        label = GetComponent<TextMesh>();
         if (label != null) label.text = Mathf.RoundToInt(amount).ToString();
 
-        this.rise = rise;
-        this.life = life;
-
-        // 从血条上方一点点开始飘，别跟血条叠在一起
-        start = new Vector3(0f, 0.25f, 0f);
+        start = new Vector3(0f, startHeight, 0f);
         transform.localPosition = start;
     }
 

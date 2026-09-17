@@ -13,7 +13,7 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 ## 脚本清单
 
 - `Assets/Scripts/`：`Entity`（实体，唯一的顶层脚本）
-- `Assets/Scripts/Managers/`：管理器（`BattleManager` / `MapManager` / `TurnManager`）
+- `Assets/Scripts/Managers/`：管理器（`BattleManager` / `MapManager` / `TurnManager`）+ 预制体加载工具（`PrefabLoader`）
 - `Assets/Scripts/Components/`：功能组件（`Health`）
 - `Assets/Scripts/Events/`：事件（`EventPipeline` 泛型收发 + `BattleEvents` 里各条消息的数据类）
 - `Assets/Scripts/UI/`：战斗界面（`BattleUIManager` 总管 + `HealthBar` 血条 + `DamagePopup` 伤害数字）
@@ -29,7 +29,10 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 | `Managers/BattleManager.cs` | **战场管理**。`BuildBattle()` 按三步拆开：**① 清理资源 `ClearBattle()` → ② 资源加载 + 绑定 + 组件缓存 `LoadBattle()` → ③ 初始化 `InitBattle()`**。`LoadBattle()` 按 Inspector 里配的路径（`mapPath` / `turnPath` / `entityPaths`，见"场景"一节）加载并实例化到 `mapPos` 下，缓存 `MapManager` / `TurnManager` / `List<Entity>`，同时把地图引用发给实体、把实体物体列表接进地图 `entities`（顺序对应 `spawnPoints`）；`InitBattle()` 先订死亡消息，再依次 `MapManager.Init()` → 每个 `Entity.Init()` → `TurnManager.Init(TurnInitData)` → 按 `autoStart` 决定开打。**收到 `EntityDied` 时统计还活着的阵营：只剩一个（或全灭）就 `EndGame()`——让回合停手 + 发 `BattleEnded` 消息** | `void BuildBattle()`（三步走一遍，可反复调）、`void StartBattle()`（转发给回合管理器）、`void RebuildBattle()`（= 清场重来）、`void ClearBattle()`（步骤①：按 回合 → 实体 → 地图 调各组件的 `Clear()`，再销毁加载出来的对象并清缓存）、`bool LoadBattle()`（步骤②，私有，关键对象加载不到返回 false）、`void InitBattle()`（步骤③，私有，先 `uiManager.Init()` 再逐个实体 `Init()` 并发 `EntitySpawnedEvent`）、`void OnEntityDied(EntityDiedEvent)`（私有，收死亡消息）、`void EndGame(int winnerTeam)`（私有，结束游戏 + 发结束消息，-1 = 打平） |
 | `Events/EventPipeline.cs` | **泛型事件管线**：按事件**类型**（`Dictionary<Type, Delegate>`）收发，加新事件不用改这个类 | `void Send<T>(T e)`、`void Subscribe<T>(Action<T>)`、`void Unsubscribe<T>(Action<T>)`、`void Clear()`（清场时清订阅） |
 | `Events/BattleEvents.cs` | 各条消息的数据类（类型本身就是频道）：`TurnChangedEvent(round, totalRounds)`、`DamageEvent(target, amount)`、`HealthChangedEvent(entity, current, max)`、`EntityDiedEvent(entity, team)`、`EntitySpawnedEvent(entity)`、`BattleEndedEvent(winnerTeam)` | 每条消息只读字段 `round` / `totalRounds`、`target` / `amount`、`entity` / `current` / `max`、`entity` / `team`、`entity`、`winnerTeam` |
-| `UI/BattleUIManager.cs` | **战斗界面总管**：全靠事件驱动——回合数（`TurnChangedEvent`）、伤害数字（`DamageEvent` 在被打实体的 UI 点位下建 `TextMesh` + `DamagePopup`）、胜方（`BattleEndedEvent`）、血条（`EntitySpawnedEvent` 时给实体挂 `HealthBar`）。HUD 挂在主相机下；文字用 `TextMesh`（不需要 Canvas / 字体资源） | `void Init()`（建 HUD + 订事件，由 `BattleManager` 调）、`void Clear()`（退订 + 销毁这次建的 UI）、`int fontSize` / `float textScale` / `Vector3 roundPos` / `Vector3 resultPos` / `float popupRise` / `float popupLife` / `float barWidth` / `float barHeight`（Inspector 里调外观） |
+| `UI/BattleUIManager.cs` | **战斗界面总管**：全靠事件驱动——回合数（`TurnChangedEvent` 写场景 Canvas 上的文字）、伤害数字（`DamageEvent` 在被打实体 UI 点位下**实例化预制体**）、胜方（`BattleEndedEvent`）、血条（`EntitySpawnedEvent` 时给实体**实例化血条预制体**）。界面元素本身都是场景 Canvas / 预制体，这里只加载、实例化、销毁，**不在代码里组装 UI** | `void Init()`（加载预制体 + 订事件，由 `BattleManager` 调）、`void Clear()`（退订 + 销毁实例化出来的血条 / 伤害数字）、`Text roundText` / `Text resultText`（场景 Canvas 下的两个文字）、`string healthBarPath` / `string damagePopupPath`（预制体路径） |
+| `UI/HealthBar.cs` | 实体头顶的血条：外观在预制体里（世界空间 Canvas + 底 / 前景两张 `Image`），组件只做三件事——`Init(entity)` 绑实体、按比例改前景 `sizeDelta.x`、`LateUpdate` 贴住实体 UI 点位并转向相机；数值靠 `HealthChangedEvent` 刷新 | `void Init(Entity entity)`（由 `BattleUIManager` 实例化后调）、`void Clear()`（退订）、`Image fill` / `float fullWidth`（预制体里接） |
+| `UI/DamagePopup.cs` | 伤害数字：外观在预制体里（世界空间 Canvas + 一个 `Text`），组件负责写数字、上飘淡出、转向相机，飘完自毁 | `void Init(float amount)`（由 `BattleUIManager` 实例化后调）、`Text label` / `float rise` / `float life` / `float startHeight`（预制体里接 / 调） |
+| `Managers/PrefabLoader.cs` | 预制体加载（`BattleManager` 与 `BattleUIManager` 共用）：先按文件名走 `Resources`，编辑器里再退回按资源路径加载，加载不到报错并返回 null | `static GameObject Load(string path)` |
 | `UI/HealthBar.cs` | 实体头顶的血条：绑 `Health` 取初值，数值靠 `HealthChangedEvent` 刷新，`LateUpdate` 里贴住实体 UI 点位并转向相机；底 + 前景两块 `SpriteRenderer`（1×1 白图，不用美术资源） | `void Init(Entity entity, float width, float height)`（由 `BattleUIManager` 创建时调）、`void Clear()`（退订） |
 | `UI/DamagePopup.cs` | 伤害数字：挂在被打实体的 UI 点位下，一边上飘一边淡出，飘完自己销毁 | `void Init(float amount, float rise, float life)`（由 `BattleUIManager` 创建时调） |
 | `Components/Health.cs` | 生命值 + 阵营；**死亡逻辑单独在 `Die()`**（停用自己 + 发 `EntityDiedEvent`），扣血流程只把血扣到 0 再交给它；对外发 `DamageEvent`（伤害数字）/ `HealthChangedEvent`（血条）/ `EntityDiedEvent`（阵亡结算）；初始化由 `Entity.Init` 调 `Init()` | `float maxHealth`、`int team`、`float Current`、`bool IsDead`、`void Init()`（记住 owner + 把当前值补满）、`void Clear()`（清理：回到未初始化状态）、`TakeDamage(float)`（见底 → `Die()`）、`void Die()`（同一条命只走一次） |
@@ -50,13 +53,16 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
   `entityPaths` = [`Assets/prefab/Melee.prefab`, `Assets/prefab/Ranger.prefab`]（顺序对应地图的 `spawnPoints`）、
   `mapPos` = `map_pos`、`uiManager` = 同一个物体上的 `BattleUIManager`（`fontSize` 48、`textScale` 0.08、血条 0.8×0.12、伤害上飘 1 / 0.9 秒）
 - `map_pos`（GO `308726978`）：只有 Transform，位置 (0,0,0)；加载出来的地图/实体/回合控制器都挂它下面（`mapPos` 留空就放场景根）
-- 场景检查：`python _validate_scene.py`（现在 22 个块；查 fileID 引用、组件归属、父子关系、SceneRoots、缩进）
+- `BattleCanvas`（GO `321782090`）：Screen Space - Overlay 的 Canvas（+ CanvasScaler 1920×1080），两个文字子物体——`RoundText`（左上角，`Round x/y`）与 `ResultText`（屏幕中央，胜方 / Draw），都接到 `BattleUIManager` 上
+- 场景检查：`python _validate_scene.py`（现在 34 个块；查 fileID 引用、组件归属、父子关系、SceneRoots、缩进）
 - 预制体（都在 `Assets/prefab/`，手工维护）：
   - `map1.prefab`：MeshFilter / MeshRenderer / MeshCollider + `MapManager`（`cellSize` 1；`spawnPoints` = [(1,1), (2,2)]；
     `entities` 是 2 个**空槽**——跨对象引用进不了预制体，由 `BattleManager` 运行时填）
   - `Melee.prefab`：Entity(uuid 2, 先攻 44, moveSteps 4) + AutoPilot(靠近, speed 5) + Attacker(近战 attackType 0, 伤害 20, 冷却 1) + Health(team 0, 50)
   - `Ranger.prefab`：Entity(uuid 1, 先攻 10, moveSteps 3) + AutoPilot(远离, speed 5) + Attacker(远程 attackType 1, 伤害 10, 冷却 1) + Health(team 1, 50)
   - `turn1.prefab`：`TurnManager`（`totalRounds` 5、`turnDelay` 0.2、`autoStart` 开 → `BattleManager` 初始化完就开打；`actors` 也是 2 个空槽，由 `BattleManager` 填）
+  - `HealthBar.prefab`：世界空间 Canvas（scale 0.01 → 1.0×0.12 世界单位）+ `Back` / `Fill` 两张 Image（内置 UISprite，白图染色）+ `HealthBar` 组件（`fill` 接前景、`fullWidth` 100）
+  - `DamagePopup.prefab`：世界空间 Canvas（scale 0.01 → 1.2×0.4 世界单位）+ `Label`（uGUI `Text`，40 号、居中、偏黄）+ `DamagePopup` 组件（`label` 接文字，上飘 1 / 存活 0.9 秒）
   - 四个预制体里的 `map` 字段全是空的：运行时 `BattleManager` 把地图实例发给 `Entity`，`Entity.Init` 再转给 AutoPilot / Attacker
 - 编辑器工具 `Assets/Editor/SceneAutoReload.cs`：磁盘上的 `.unity` 一变就自动重新加载当前场景（内存里未保存的版本先另存到 `Temp/编辑器未保存版本_*.unity`）；菜单 `Tools/场景以磁盘为准` 开关（默认开）、`Tools/重新加载当前场景（以磁盘为准）` 手动触发；播放中不动场景
 
@@ -107,7 +113,7 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 - `BattleManager`：预制体靠 Inspector 里手填的**路径字符串**加载——`LoadPrefab` 先按文件名走 `Resources.Load`，编辑器里再退回 `AssetDatabase.LoadAssetAtPath`，所以现在不改目录就能跑，但**打包后必须把预制体放进某个 `Resources` 目录**；清场用 `Destroy`（当帧末尾才真销毁，重开那一帧新旧对象并存，靠显式发地图引用避开旧地图）；实体初始位置完全依赖地图预制体上的 `spawnPoints`（数量不够的实体留在被实例化的位置）；`BuildBattle()` 装完会看 turn 预制体的 `autoStart` 决定要不要立刻开打（true 就调 `StartBattle()`），也可以外部随时调 `StartBattle()` / `RebuildBattle()`；目前没有任何 UI / 快捷键触发它们（NavTest 那套测试按钮已随场景重构删掉）；**组件都不再有 `Awake` / `Start` 初始化，只有 `BattleManager.Awake` 是入口**——谁没被 `Init()` 调到谁就不工作
 - `EventPipeline`：静态总线（全局单例语义）——按类型分发、同一类型可订多个、按订阅顺序回调，没有优先级 / 取消 / 一次性订阅；`Clear()` 会清掉**所有类型**的订阅（`BattleManager.ClearBattle` 末尾调一次兜底，谁在它之后才订阅就会被误清，加订阅者时注意）；订阅用方法组（`Subscribe<T>(OnXxx)`），退订必须传同一个方法组——**别用 lambda 订阅**（lambda 退不掉）
 - 战斗结束：`BattleManager.EndGame()` 直接调 `TurnManager.Clear()` 让回合停手，所以结束后 `TurnState` 是 `Idle`（不是 `Finished`）、参战列表也空了；要区分"打完了"可以再给 `TurnManager` 一个结束态
-- **界面（UI）**：全部是运行时建的，场景 / 预制体里没有任何 UI 资源——HUD 挂在主相机下（相机空间 `roundPos` / `resultPos`），伤害数字与血条挂在实体的 UI 点位下；文字用 `TextMesh`（内置字体 `LegacyRuntime.ttf`，**没有中文字形，所以界面文字只能英文 / 数字**）；血条用两块 1×1 白色 `SpriteRenderer`（`Texture2D.whiteTexture` 现建精灵）；字的大小（`fontSize` / `textScale`）与 HUD 位置是拍的初值，**没在播放模式下看过，需要在 Inspector 里微调**；伤害数字不合并、不加暴击/治疗等前缀；血条没有缓动、没有数字文本
+- **界面（UI）**：HUD 是场景 `BattleCanvas`（Overlay）上的 uGUI `Text`，血条与伤害数字是预制体（内部是**世界空间 Canvas**，这样两张 Image / 一个 Text 都只用内置 UISprite 与内置字体，不需要美术资源）；**内置字体没有中文字形，界面文字只能英文 / 数字**（`Round x/y` / `Team 0 Wins` / `Draw`），要中文得先进字体资源；血量条没有缓动、没有数字文本，伤害数字不合并同帧多次伤害、不加暴击 / 治疗前缀；字号、条宽、上飘高度这些是拍的初值，**没在播放模式下看过，需要在 Inspector / 预制体里微调**；世界空间 Canvas 每帧转向相机（`Camera.main`），场景里没有主相机会看不到血条与伤害数字
 - 脚本都还没在播放模式下跑过（两个角色都没有 Rigidbody，移动是直接写 `transform.position`）
 
 ## 按用户给的结构做的重构（进度）
@@ -128,6 +134,7 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 - **二维图读写包装** ✅ `MapManager` 内部不再直接下标访问 `cells`：读写走 `UuidAt` / `SetUuid` / `ClearCells`，判空走 `HasGrid`（裸下标只剩在这两个方法里），`IsOccupied` 合并进 `CanEnter`
 - **可见性收紧 + 补说明** ✅ 扫了一遍公开面：只在自己类里用的收成 private（`MapManager.Build` / `ResetEntities` / `ReleaseEntity` / `UuidAt` / `EntityAt` / `EntityOf` / `IsOccupied` / `InBounds` / `SelfCheck*`，`TurnManager.BuildActionStack` / `PopNext`），没人用的直接删（`MapManager.EntitiesAt` / `TryGetCell` / `CancelMove`）；伤害改走 `Entity.TakeDamage` 门面（原先 `DamageCaster` 直接调 `Health`）；给管线各实现补上缺的 `<summary>`
 - **UI 系统 + 泛型事件管线** ✅ `EventPipeline` 改成按类型收发的泛型管线，事件定义独立到 `BattleEvents.cs`（加事件不用改管线）；新增 `Assets/Scripts/UI/`：`BattleUIManager`（回合数 / 伤害数字 / 胜方显示 + 给实体挂血条）、`HealthBar`（绑 Health，事件刷新 + LateUpdate 贴点位转向相机）、`DamagePopup`（伤害数字上飘淡出）；`Health` 发伤害 / 生命变化消息，`TurnManager` 每回合发回合刷新消息，`BattleManager` 发实体就绪与战斗结束消息并把界面接管进 Init / Clear；`Entity` 加 `uiPoint` 点位（留空自动建在头顶）
+- **界面改成 Canvas + 预制体** ✅ HUD 从相机下的 `TextMesh` 换成场景 `BattleCanvas`（Overlay + 两个 uGUI `Text`，直接引用）；血条与伤害数字改为 `Assets/prefab/HealthBar.prefab` / `DamagePopup.prefab`，由 `BattleUIManager` 用新增的 `PrefabLoader` 加载后实例化到实体的 UI 点位下；三个界面脚本都不再在代码里拼 GameObject / 精灵 / 文字，只留绑定、刷新、销毁
 - **规范化** ✅ 全部脚本按用户给的顺序重排：**属性 → 生命周期 → 公开方法 → 私有方法**（各组内按调用顺序），属性标签横排一行；私有字段统一去掉下划线前缀，序列化字段补中文 Tooltip；删掉过期的 `BattlePrefabExporter`；分块统一用 `#region` / `#endregion`
 - 未做：Map 配置对象（用户说暂时不用）
 

@@ -105,7 +105,7 @@ public class BattleManager : MonoBehaviour
     {
         // ---------- 地图 ----------
 
-        var mapPrefab = LoadPrefab(mapPath);
+        var mapPrefab = PrefabLoader.Load(mapPath);
         if (mapPrefab == null) return false;                // 加载不到地图就没法继续（LoadPrefab 已经报错）
 
         mapManager = InstantiateAt(mapPrefab).GetComponent<MapManager>();
@@ -121,7 +121,7 @@ public class BattleManager : MonoBehaviour
 
         foreach (var path in entityPaths)
         {
-            var prefab = LoadPrefab(path);
+            var prefab = PrefabLoader.Load(path);
             if (prefab == null) continue;
 
             var go = InstantiateAt(prefab);
@@ -142,7 +142,7 @@ public class BattleManager : MonoBehaviour
 
         // ---------- 回合 ----------
 
-        var turnPrefab = LoadPrefab(turnPath);
+        var turnPrefab = PrefabLoader.Load(turnPath);
         if (turnPrefab == null) return false;
 
         turnManager = InstantiateAt(turnPrefab).GetComponent<TurnManager>();
@@ -222,21 +222,6 @@ public class BattleManager : MonoBehaviour
         return mapPos != null
             ? Instantiate(prefab, mapPos.position, Quaternion.identity, mapPos)
             : Instantiate(prefab);
-    }
-
-    /// <summary>按路径加载预制体：先按名字走 Resources（打包后也能用），编辑器里再退回按资源路径加载</summary>
-    static GameObject LoadPrefab(string path)
-    {
-        if (string.IsNullOrWhiteSpace(path)) return null;
-
-        var go = Resources.Load<GameObject>(System.IO.Path.GetFileNameWithoutExtension(path));
-#if UNITY_EDITOR
-        if (go == null) go = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(path);
-#endif
-        if (go == null)
-            Debug.LogError($"[BattleManager] 加载不到预制体：{path}（放进 Resources 目录就能在打包后也加载到）");
-
-        return go;
     }
 
     #endregion
