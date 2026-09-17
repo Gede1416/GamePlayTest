@@ -19,6 +19,7 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 - `Assets/Scripts/UI/`：战斗界面（`BattleUIManager` 总管 + `HealthBar` 血条 + `DamagePopup` 伤害数字）
 - `Assets/Scripts/Pipeline/Movement/`：移动管线（`AutoPilot` / `PathPipeline` / `TargetSources` / `PathPipelineFactory`）
 - `Assets/Scripts/Pipeline/Attack/`：攻击管线（`Attacker` / `AttackPipeline` / `AttackPipelineFactory`）
+- `Assets/Scripts/MPBTest/`：批处理对照测试场脚本（`MPBTestManager`，**与战斗逻辑无关**，见下面「MaterialPropertyBlock 批处理测试场」一节）
 - `Assets/Editor/`：编辑器工具（`SceneAutoReload`）
 
 | 文件 | 职责 | 对外接口 |
@@ -64,6 +65,44 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
   - `DamagePopup.prefab`：世界空间 Canvas（scale 0.01 → 1.2×0.4 世界单位）+ `Text (TMP)`（TMP 文字，40 号、居中、偏黄）+ `DamagePopup` 组件（`label` 接文字，上飘 1 / 存活 0.9 秒）
   - 四个预制体里的 `map` 字段全是空的：运行时 `BattleManager` 把地图实例发给 `Entity`，`Entity.Init` 再转给 AutoPilot / Attacker
 - 编辑器工具 `Assets/Editor/SceneAutoReload.cs`：磁盘上的 `.unity` 一变就自动重新加载当前场景（内存里未保存的版本先另存到 `Temp/编辑器未保存版本_*.unity`）；菜单 `Tools/场景以磁盘为准` 开关（默认开）、`Tools/重新加载当前场景（以磁盘为准）` 手动触发；播放中不动场景
+
+## MaterialPropertyBlock 批处理测试场（Assets/Scenes/MPBTestScene.unity）
+
+**先回答「这个项目能不能用这些技术」**（2026-09-17 核实，结论都有出处）：
+
+- 渲染管线：`GraphicsSettings.asset` 里 `m_CustomRenderPipeline: {fileID: 0}`、`Packages/manifest.json` 里没有 URP / HDRP 包 → **Built-in RP**。
+  所以**本项目根本没有 SRP Batcher**，「MPB 破坏 SRP Batcher」这条对本项目不适用，换 URP / HDRP 才会遇到。
+- Built-in 下 MPB 是喂 GPU Instancing 逐实例数据的正道（官方示例就是 MPB + `_Color`），但**前提是那个属性在着色器里声明成逐实例属性**
+  （`UNITY_DEFINE_INSTANCED_PROP`）。官方原话：**不要把非 instanced 属性放进 MPB，那会禁用 instancing**。
+  **本机 Unity 2022.3.62 的内置 Standard 着色器就是反例**——`CGIncludes/UnityStandardInput.cginc` 里 `half4 _Color;` 是普通 uniform，
+  整个 Standard 系没有逐实例材质属性（只有引擎自带的 PerDraw / Sprite 缓冲）。**所以 `DeathEffect` 现在这种「MPB 改 Standard 的 `_Color`」写法，
+  只要材质勾了 Enable GPU Instancing，就会把这个渲染器踢出 instancing**。
+- 项目现状：静态批处理开、动态批处理关（`ProjectSettings.asset` 的 `m_StaticBatching` / `m_DynamicBatching`）；
+  三个材质（entity / ground / skill）都是 Standard 且 `m_EnableInstancingVariants: 0`（Inspector 里 Enable GPU Instancing 没勾）
+  → **现在的战斗单位一个都没走 GPU Instancing**，要用得先勾上（勾上后逐实例数据还得走「逐实例属性」那条路，见上一条）。
+
+**怎么用**：打开场景按播放，左上角 HUD（IMGUI，文字英文——默认字体没有中文字形）列 6 种模式与实时读数。
+按 1→6 走一遍会攒出一张「同数量下 batches / setpass / 材质数」对照表；`[` `]` 换数量档（100 / 500 / 2000 / 5000）、
+`空格` 切每帧写 MPB 的动画、`S` 切静态批处理（重建时调 `StaticBatchingUtility.Combine`）、`R` 重建；
+配合 Window > Analysis > Frame Debugger 看每个 draw call 到底为什么合批 / 为什么没合批。
+
+| 模式 | 做法 | 该看到什么 |
+|---|---|---|
+| 1 | Standard + 开 GPU Instancing，不写 MPB | 基线：几百个方块压成 1 个 draw call |
+| 2 | Standard + 开 GPU Instancing + MPB 逐实例 `_Color` | `_Color` 不是逐实例属性 → instancing 被禁用，批次数 ≈ 方块数 |
+| 3 | `MPBTint`（`_Color` 声明在 `UNITY_INSTANCING_BUFFER`）+ MPB | **正道**：逐实例颜色 + 仍然 1 个 draw call |
+| 4 | 同 3，但材质关掉 Enable GPU Instancing | 没有 instancing 兜底时，MPB 换不来合批 |
+| 5 | 每物体一份 `renderer.material` | 反面教材：材质数 = 方块数，SetPass 暴涨（官方警告 `material` 会复制材质） |
+| 6 | `Graphics.DrawMeshInstanced` + MPB 数组 | 1 次调用画 1023 个，完全绕开 GameObject / Renderer |
+
+- 文件：脚本 `Assets/Scripts/MPBTest/MPBTestManager.cs`（**自己按 `Awake → Build()` 起，没挂进战斗的 Init 链**）、
+  着色器 `Assets/MPBTest/MPBTint.shader`、场景 `Assets/Scenes/MPBTestScene.unity`
+  （只有 Main Camera + Directional Light + `MPBTest` 一个物体，方块全部运行期造；相机由脚本按方块规模摆，
+  灯光**阴影关掉**——阴影 pass 会让批次数翻倍，读数不好看）
+- 读数用 `ProfilerRecorder`（Batches / SetPass Calls / Draw Calls，等同于 Stats 面板）；拿不到就显示 n/a，看 Game 视图 Stats 面板
+- 缺口（有意）：着色器靠 `Shader.Find("MPBTest/Tint")` 找，**打包时会因没人引用被剔除**（编辑器里没影响，要打包就给它建个材质资产）；
+  HUD 是 IMGUI 英文；没有自动跑分（要自己按 1→6）；`Assets/Scenes/test.unity` 是用户自己的临时场景（未入库），本测试场没动它
+- 提交场景改动前的自检：`python _validate_scene.py Assets/Scenes/MPBTestScene.unity`（脚本现在支持传场景路径，默认仍查主场景）
 
 ## 约定
 
