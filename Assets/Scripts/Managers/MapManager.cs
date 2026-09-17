@@ -33,6 +33,9 @@ public class MapManager : MonoBehaviour
 
     int[,] cells;      // 二维图：格子 -> 实体 uuid（Empty = 空，Unknown = 占着但没登记 uuid）
 
+    /// <summary>二维图建好了没有（没建之前所有读写都当空）</summary>
+    bool HasGrid => cells != null;
+
     static readonly Vector2Int[] Dirs = { Vector2Int.right, Vector2Int.left, Vector2Int.up, Vector2Int.down };
 
     /// <summary>x 方向格子数</summary>
@@ -64,11 +67,11 @@ public class MapManager : MonoBehaviour
         for (float z = b.min.z; z <= b.max.z + 0.001f; z += cellSize)
             Gizmos.DrawLine(new Vector3(b.min.x, y, z), new Vector3(b.max.x, y, z));
 
-        if (cells == null) return;      // 地图数据运行中才有
+        if (!HasGrid) return;           // 地图数据运行中才有
         Gizmos.color = Color.red;
         for (int x = 0; x < Cols; x++)
             for (int z = 0; z < Rows; z++)
-                if (cells[x, z] != Empty)
+                if (UuidAt(x, z) != Empty)
                     Gizmos.DrawWireCube(CellToWorld(x, z), new Vector3(cellSize, 0.02f, cellSize));
     }
 
@@ -129,10 +132,10 @@ public class MapManager : MonoBehaviour
     /// </summary>
     public void SyncOccupied()
     {
-        if (cells == null) Build();
-        if (cells == null) return;
+        if (!HasGrid) Build();
+        if (!HasGrid) return;
 
-        System.Array.Clear(cells, 0, cells.Length);
+        ClearCells();
 
         var placed = new Dictionary<int, string>();     // 本次已经摆下的 uuid -> 物体名，只用来查重
 
@@ -151,7 +154,7 @@ public class MapManager : MonoBehaviour
 
             if (entity == null || entity.Uuid <= Empty)
             {
-                cells[cell.x, cell.y] = Unknown;
+                SetUuid(cell, Unknown);
                 Debug.LogWarning($"[MapManager] {go.name} 没有 Entity 或 uuid <= 0，格子占用记 Unknown（索引里查不到它）", go);
                 continue;
             }
@@ -162,7 +165,7 @@ public class MapManager : MonoBehaviour
                 continue;
             }
 
-            cells[cell.x, cell.y] = entity.Uuid;
+            SetUuid(cell, entity.Uuid);
             placed[entity.Uuid] = go.name;
         }
     }
@@ -174,38 +177,21 @@ public class MapManager : MonoBehaviour
     /// </summary>
     void ReleaseEntity(Entity entity)
     {
-        if (entity == null || cells == null) return;
+        if (entity == null || !HasGrid) return;
 
         var cell = WorldToCell(entity.transform.position);
-        if (InBounds(cell))
-        {
-            int id = cells[cell.x, cell.y];
-            if (id == entity.Uuid || id == Unknown) cells[cell.x, cell.y] = Empty;
-        }
+        if (!InBounds(cell)) return;
+
+        int id = UuidAt(cell);
+        if (id == entity.Uuid || id == Unknown) SetUuid(cell, Empty);
 
         entities.Remove(entity.gameObject);
     }
 
     #region 查询
 
-    /// <summary>格子里的实体 uuid：空 = Empty(0)，占用但没登记 = Unknown(-1)</summary>
-    int UuidAt(Vector2Int cell)
-    {
-        if (cells == null || !InBounds(cell)) return Empty;
-        return cells[cell.x, cell.y];
-    }
-
-    /// <summary>格子是否已被占用（没登记 uuid 的也算占用）</summary>
-    bool IsOccupied(Vector2Int cell) => UuidAt(cell) != Empty;
-
-    /// <summary>可进入 = 在网格内 且 未被占用</summary>
-    public bool CanEnter(Vector2Int cell) => InBounds(cell) && !IsOccupied(cell);
-
-    /// <summary>格子坐标是否在网格内（Vector2Int 的 x = 列，y = 行，不是世界高度）</summary>
-    bool InBounds(Vector2Int cell)
-    {
-        return cell.x >= 0 && cell.x < Cols && cell.y >= 0 && cell.y < Rows;
-    }
+    /// <summary>可进入 = 在网格内 且 没被占（没登记 uuid 的也算占用）</summary>
+    public bool CanEnter(Vector2Int cell) => InBounds(cell) && UuidAt(cell) == Empty;
 
     /// <summary>两格之间的曼哈顿距离（两个分量差的绝对值之和）</summary>
     public static int Manhattan(Vector2Int a, Vector2Int b)
@@ -240,13 +226,13 @@ public class MapManager : MonoBehaviour
     public bool TryMove(Vector2Int from, Vector2Int step, out Vector2Int to)
     {
         to = from + step;
-        if (cells == null || !InBounds(from) || !CanEnter(to)) return false;
+        if (!HasGrid || !InBounds(from) || !CanEnter(to)) return false;
 
-        int id = cells[from.x, from.y];
+        int id = UuidAt(from);
         if (id == Empty) id = Unknown;      // 没登记的移动者：占住落点，但不进索引
 
-        cells[from.x, from.y] = Empty;
-        cells[to.x, to.y] = id;
+        SetUuid(from, Empty);
+        SetUuid(to, id);
         return true;
     }
 
@@ -261,7 +247,7 @@ public class MapManager : MonoBehaviour
     public bool FindPath(Vector2Int from, Vector2Int to, List<Vector2Int> path)
     {
         path.Clear();
-        if (cells == null) return false;
+        if (!HasGrid) return false;
         if (from == to) return true;             // 已经在目标格上，空路径也算成功
         if (!CanEnter(to)) return false;         // 目标进不去（界外或被占）
 
@@ -300,12 +286,12 @@ public class MapManager : MonoBehaviour
     [ContextMenu("自检：寻路")]
     void SelfCheckPath()
     {
-        if (cells == null) { Debug.LogWarning("[MapManager] 还没 Build，没有地图数据可查"); return; }
+        if (!HasGrid) { Debug.LogWarning("[MapManager] 还没 Build，没有地图数据可查"); return; }
 
         var free = new List<Vector2Int>();
         for (int x = 0; x < Cols; x++)
             for (int z = 0; z < Rows; z++)
-                if (cells[x, z] == Empty) free.Add(new Vector2Int(x, z));
+                if (UuidAt(x, z) == Empty) free.Add(new Vector2Int(x, z));
 
         if (free.Count < 2) { Debug.LogWarning("[MapManager] 空格子不足两个，没得测"); return; }
 
@@ -335,14 +321,14 @@ public class MapManager : MonoBehaviour
     [ContextMenu("自检：地图数据一致性")]
     void SelfCheck()
     {
-        if (cells == null) { Debug.LogWarning("[MapManager] 还没 Build，没有地图数据可查"); return; }
+        if (!HasGrid) { Debug.LogWarning("[MapManager] 还没 Build，没有地图数据可查"); return; }
 
         var times = new Dictionary<int, int>();     // uuid 在二维图里出现了几次
         int occupied = 0, known = 0;
         for (int x = 0; x < Cols; x++)
             for (int z = 0; z < Rows; z++)
             {
-                int id = cells[x, z];
+                int id = UuidAt(x, z);
                 if (id == Empty) continue;
 
                 occupied++;
@@ -381,6 +367,37 @@ public class MapManager : MonoBehaviour
 
     /// <summary>收到死亡消息：把阵亡单位从地图登记里摘掉，放开它占的格子</summary>
     void OnEntityDied(BattleEvent e) => ReleaseEntity(e.entity);
+
+    #region 二维图存取
+
+    /// <summary>读某格的 uuid（列行版本，遍历时用）：没图 / 界外都当空</summary>
+    int UuidAt(int col, int row)
+    {
+        return HasGrid && col >= 0 && col < Cols && row >= 0 && row < Rows ? cells[col, row] : Empty;
+    }
+
+    /// <summary>读某格的 uuid：空 = Empty(0)，占用但没登记 = Unknown(-1)</summary>
+    int UuidAt(Vector2Int cell) => UuidAt(cell.x, cell.y);
+
+    /// <summary>写某格的 uuid（界外不写）</summary>
+    void SetUuid(Vector2Int cell, int uuid)
+    {
+        if (HasGrid && InBounds(cell)) cells[cell.x, cell.y] = uuid;
+    }
+
+    /// <summary>整张二维图清空（全部置 Empty）</summary>
+    void ClearCells()
+    {
+        if (HasGrid) System.Array.Clear(cells, 0, cells.Length);
+    }
+
+    /// <summary>格子坐标是否在网格内（Vector2Int 的 x = 列，y = 行，不是世界高度）</summary>
+    bool InBounds(Vector2Int cell)
+    {
+        return cell.x >= 0 && cell.x < Cols && cell.y >= 0 && cell.y < Rows;
+    }
+
+    #endregion
 
     /// <summary>物体的地面包围盒：优先取 Renderer，没有就退化成位置 + 缩放</summary>
     static Bounds GetBounds(GameObject go)
