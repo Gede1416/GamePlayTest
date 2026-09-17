@@ -1,7 +1,7 @@
 using UnityEngine;
 
 /// <summary>
-/// 测试用：让 pilot 走到 anchor（默认 entity (1)）上下左右最近的空格。
+/// 测试用：让 pilot 走到 anchor（场景里接的参照物，例如 Melee）上下左右最近的空格。
 /// 挂在 Canvas 上，四个按钮的 onClick 分别指到 GoUp / GoDown / GoLeft / GoRight。
 /// </summary>
 public class NavTest : MonoBehaviour
