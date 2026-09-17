@@ -89,14 +89,14 @@ public class MapManager : MonoBehaviour
         ResetEntities();
 
         // 先退订再订，重复 Init 也不会订两遍
-        EventPipeline.Unsubscribe(BattleEventType.EntityDied, OnEntityDied);
-        EventPipeline.Subscribe(BattleEventType.EntityDied, OnEntityDied);
+        EventPipeline.Unsubscribe<EntityDiedEvent>(OnEntityDied);
+        EventPipeline.Subscribe<EntityDiedEvent>(OnEntityDied);
     }
 
     /// <summary>清理：放掉地图数据与实体列表（由 BattleManager.ClearBattle 调；spawnPoints 是配置，保留）</summary>
     public void Clear()
     {
-        EventPipeline.Unsubscribe(BattleEventType.EntityDied, OnEntityDied);
+        EventPipeline.Unsubscribe<EntityDiedEvent>(OnEntityDied);
 
         cells = null;
         entities.Clear();
@@ -366,7 +366,7 @@ public class MapManager : MonoBehaviour
     #region 私有方法
 
     /// <summary>收到死亡消息：把阵亡单位从地图登记里摘掉，放开它占的格子</summary>
-    void OnEntityDied(BattleEvent e) => ReleaseEntity(e.entity);
+    void OnEntityDied(EntityDiedEvent e) => ReleaseEntity(e.entity);
 
     #region 二维图存取
 

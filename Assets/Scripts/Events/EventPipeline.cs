@@ -1,93 +1,45 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
-
-/// <summary>战斗事件类型</summary>
-public enum BattleEventType
-{
-    /// <summary>有实体阵亡：谁死了看 BattleEvent.entity，死者阵营看 team</summary>
-    EntityDied = 0,
-
-    /// <summary>战斗结束：胜方阵营看 team（-1 = 打平 / 全灭）</summary>
-    BattleEnded = 1,
-}
-
-/// <summary>战斗事件：一个类型 + 这次要带的少量数据（谁、哪个阵营）。</summary>
-public class BattleEvent
-{
-    #region 属性
-
-    public readonly BattleEventType type;
-
-    /// <summary>事件相关的实体（死亡事件里是死者；别的类型可以为 null）</summary>
-    public readonly Entity entity;
-
-    /// <summary>死亡事件 = 死者阵营；结束事件 = 胜方阵营（-1 = 打平 / 全灭）</summary>
-    public readonly int team;
-
-    #endregion
-
-    #region 构造
-
-    public BattleEvent(BattleEventType type, Entity entity = null, int team = -1)
-    {
-        this.type = type;
-        this.entity = entity;
-        this.team = team;
-    }
-
-    #endregion
-
-    #region 公开方法
-
-    /// <summary>死亡事件：传死者和它的阵营</summary>
-    public static BattleEvent EntityDied(Entity entity, int team) => new BattleEvent(BattleEventType.EntityDied, entity, team);
-
-    /// <summary>结束事件：传胜方阵营（-1 = 打平 / 全灭）</summary>
-    public static BattleEvent BattleEnded(int winnerTeam) => new BattleEvent(BattleEventType.BattleEnded, null, winnerTeam);
-
-    #endregion
-}
 
 /// <summary>
-/// 基础事件管线：只管收发——发送方 Send，订阅方按类型收（每种类型可以订多个，按订阅顺序回调）。
-/// 订阅在初始化时订（BattleManager.InitBattle 订死亡消息），清场时 Clear 掉（BattleManager.ClearBattle），
-/// 免得旧的订阅留在静态表里对着已经销毁的对象回调。
+/// 基础事件管线（泛型）：按**事件类型**收发——订阅方 <c>Subscribe&lt;T&gt;(处理函数)</c>，发送方 <c>Send(事件对象)</c>。
+/// 加新事件只要写一个新的数据类型，这个类一行都不用改；同一类型可以订多个，按订阅顺序回调。
+/// 订阅在各自的 Init 里订、Clear 里退订（BattleManager.ClearBattle 末尾还会 Clear 兜一道）。
 /// </summary>
 public static class EventPipeline
 {
     #region 属性
 
-    static readonly Dictionary<BattleEventType, Action<BattleEvent>> handlers = new();
+    // 事件类型 -> 该类型的处理链（multicast delegate）
+    static readonly Dictionary<Type, Delegate> handlers = new();
 
     #endregion
 
     #region 公开方法
 
     /// <summary>发消息：这个类型没有订阅者就什么都不做</summary>
-    public static void Send(BattleEvent e)
+    public static void Send<T>(T e)
     {
-        if (e == null) return;
-        if (handlers.TryGetValue(e.type, out var handler)) handler?.Invoke(e);
+        if (handlers.TryGetValue(typeof(T), out var chain)) (chain as Action<T>)?.Invoke(e);
     }
 
     /// <summary>订某种消息</summary>
-    public static void Subscribe(BattleEventType type, Action<BattleEvent> handler)
+    public static void Subscribe<T>(Action<T> handler)
     {
         if (handler == null) return;
 
-        handlers.TryGetValue(type, out var existing);
-        handlers[type] = existing + handler;
+        handlers.TryGetValue(typeof(T), out var chain);
+        handlers[typeof(T)] = (chain as Action<T>) + handler;
     }
 
     /// <summary>退订</summary>
-    public static void Unsubscribe(BattleEventType type, Action<BattleEvent> handler)
+    public static void Unsubscribe<T>(Action<T> handler)
     {
-        if (handler == null || !handlers.TryGetValue(type, out var existing)) return;
+        if (handler == null || !handlers.TryGetValue(typeof(T), out var chain)) return;
 
-        var left = existing - handler;
-        if (left == null) handlers.Remove(type);
-        else handlers[type] = left;
+        var left = (chain as Action<T>) - handler;
+        if (left == null) handlers.Remove(typeof(T));
+        else handlers[typeof(T)] = left;
     }
 
     /// <summary>清掉全部订阅（清场时调）</summary>

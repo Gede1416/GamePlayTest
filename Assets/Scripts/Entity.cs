@@ -25,6 +25,9 @@ public class Entity : MonoBehaviour
     [Header("管线")][Tooltip("地图管理器；留空则取场景里的第一个")]
     public MapManager map;
 
+    [Tooltip("UI 点位：血条 / 伤害数字挂在它下面；留空就在 Init 时于头顶自动建一个")]
+    public Transform uiPoint;
+
     /// <summary>实体 id（Entity 自己持有）</summary>
     public int Uuid => uuid;
 
@@ -82,6 +85,8 @@ public class Entity : MonoBehaviour
         if (uuid <= 0) Debug.LogWarning($"{name}: uuid 没配（<= 0），地图索引会用不了", this);
         if (map == null) Debug.LogWarning($"{name}: map 没配，移动 / 攻击管线拿不到地图数据", this);
 
+        if (uiPoint == null) uiPoint = CreateUiPoint();      // UI 都挂在它下面
+
         // 地图由上级发下来，各组件只认自己的 Init（不再依赖 Awake / Start）
         if (Health != null) Health.Init();
 
@@ -131,6 +136,15 @@ public class Entity : MonoBehaviour
     #endregion
 
     #region 私有方法
+
+    /// <summary>没配 UI 点位就自动建一个（头顶 +1），血条与伤害数字挂它下面</summary>
+    Transform CreateUiPoint()
+    {
+        var go = new GameObject("UI");
+        go.transform.SetParent(transform, false);
+        go.transform.localPosition = new Vector3(0f, 1f, 0f);
+        return go.transform;
+    }
 
     void CacheComponents()
     {

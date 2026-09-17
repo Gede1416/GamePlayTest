@@ -127,6 +127,7 @@ public class TurnManager : MonoBehaviour
         for (CurrentRound = 1; CurrentRound <= totalRounds; CurrentRound++)
         {
             BuildActionStack();
+            EventPipeline.Send(new TurnChangedEvent(CurrentRound, totalRounds));   // 回合刷新：界面更新回合数
             Debug.Log($"[TurnManager] 第 {CurrentRound}/{totalRounds} 回合开始，行动顺序：{string.Join(" > ", ActionStack.ConvertAll(a => a != null ? a.name : "空"))}");
 
             while (true)

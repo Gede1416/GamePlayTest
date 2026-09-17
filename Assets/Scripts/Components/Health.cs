@@ -3,6 +3,7 @@ using UnityEngine;
 /// <summary>
 /// 生命值。挂在可被攻击的物体上。
 /// 死亡逻辑单独放在 Die()：扣血流程只负责把血扣到 0 再交给它，它负责停用自己并发出死亡消息。
+/// 对外发三种消息：DamageEvent（伤害数字）、HealthChangedEvent（血条）、EntityDiedEvent（阵亡结算）。
 /// 成员顺序：属性 → 生命周期 → 公开方法 → 私有方法（各组内按调用顺序）。
 /// </summary>
 public class Health : MonoBehaviour
@@ -28,12 +29,13 @@ public class Health : MonoBehaviour
 
     #region 公开方法
 
-    /// <summary>初始化：由 Entity.Init 调用（组件自己不靠 Awake 干活）：记住主人并把当前值补满</summary>
+    /// <summary>初始化：由 Entity.Init 调用（组件自己不靠 Awake 干活）：记住主人、补满血、报一次生命变化</summary>
     public void Init()
     {
         owner = GetComponent<Entity>();
         dead = false;
         Current = maxHealth;
+        SendChanged();
     }
 
     /// <summary>清理：回到未初始化状态（由 Entity.Clear 调，下次 Init 会重新补满）</summary>
@@ -50,6 +52,8 @@ public class Health : MonoBehaviour
         if (IsDead) return;
 
         Current = Mathf.Max(0f, Current - amount);
+        EventPipeline.Send(new DamageEvent(owner, amount));     // 伤害数字
+        SendChanged();                                          // 血条
         if (IsDead) Die();
     }
 
@@ -61,8 +65,15 @@ public class Health : MonoBehaviour
         dead = true;
         Current = 0f;
         gameObject.SetActive(false);
-        EventPipeline.Send(BattleEvent.EntityDied(owner, team));
+        EventPipeline.Send(new EntityDiedEvent(owner, team));
     }
+
+    #endregion
+
+    #region 私有方法
+
+    /// <summary>报一次生命变化（血条靠它刷新）</summary>
+    void SendChanged() => EventPipeline.Send(new HealthChangedEvent(owner, Current, maxHealth));
 
     #endregion
 }

@@ -49,4 +49,4 @@ MonoBehaviour:
   - {fileID: 0}
   totalRounds: 5
   turnDelay: 0.2
-  autoStart: 0
+  autoStart: 1

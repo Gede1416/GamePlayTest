@@ -162,6 +162,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 321782085}
+  - component: {fileID: 321782086}
   - component: {fileID: 321782084}
   m_Layer: 0
   m_Name: BattleManager
@@ -188,6 +189,7 @@ MonoBehaviour:
   - Assets/prefab/Melee.prefab
   - Assets/prefab/Ranger.prefab
   mapPos: {fileID: 308726979}
+  uiManager: {fileID: 321782086}
 --- !u!4 &321782085
 Transform:
   m_ObjectHideFlags: 0
@@ -457,6 +459,26 @@ MonoBehaviour:
   m_InputActionsPerSecond: 10
   m_RepeatDelay: 0.5
   m_ForceModuleActive: 0
+--- !u!114 &321782086
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 321782083}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 71ab0a61b5d54f06a5f9db4522fe6d5c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  fontSize: 48
+  textScale: 0.08
+  roundPos: {x: -0.5, y: 0.3, z: 1.2}
+  resultPos: {x: 0, y: 0.12, z: 1.2}
+  popupRise: 1
+  popupLife: 0.9
+  barWidth: 0.8
+  barHeight: 0.12
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

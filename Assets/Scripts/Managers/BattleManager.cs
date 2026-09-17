@@ -27,6 +27,9 @@ public class BattleManager : MonoBehaviour
     [Tooltip("加载出来的对象都挂到它下面；留空就放场景根")]
     [SerializeField] Transform mapPos;
 
+    [Tooltip("战斗界面管理器；留空就取自己身上的（都没有就不显示界面）")]
+    public BattleUIManager uiManager;
+
     MapManager mapManager;
     TurnManager turnManager;
     List<Entity> entities;
@@ -73,7 +76,8 @@ public class BattleManager : MonoBehaviour
         if (entities != null)
             foreach (var entity in entities)
                 if (entity != null) entity.Clear();             // 再让实体转发给身上的组件
-        if (mapManager != null) mapManager.Clear();             // 最后放掉地图数据
+        if (mapManager != null) mapManager.Clear();             // 再放掉地图数据
+        if (uiManager != null) uiManager.Clear();               // 界面：退订 + 销毁这次建的 UI
 
         if (mapManager != null) Destroy(mapManager.gameObject);
         if (turnManager != null) Destroy(turnManager.gameObject);
@@ -155,12 +159,19 @@ public class BattleManager : MonoBehaviour
     void InitBattle()
     {
         // 订阅放在开打之前，免得第一回合的死亡消息漏掉
-        EventPipeline.Subscribe(BattleEventType.EntityDied, OnEntityDied);
+        EventPipeline.Subscribe<EntityDiedEvent>(OnEntityDied);
         ended = false;
+
+        if (uiManager == null) uiManager = GetComponent<BattleUIManager>();
+        if (uiManager != null) uiManager.Init();             // 界面也先订好事件
 
         mapManager.Init();                                  // 建网格 + 摆到初始位置 + 重建占用
 
-        foreach (var entity in entities) entity.Init();      // 各自按预制体数据装配管线
+        foreach (var entity in entities)
+        {
+            entity.Init();                                   // 各自按预制体数据装配管线
+            EventPipeline.Send(new EntitySpawnedEvent(entity));   // 实体就绪：界面挂血条
+        }
 
         turnManager.Init(new TurnInitData
         {
@@ -173,7 +184,7 @@ public class BattleManager : MonoBehaviour
     }
 
     /// <summary>收到死亡消息：场上只剩一个阵营就结束游戏（一个不剩 = 全灭，按打平处理）</summary>
-    void OnEntityDied(BattleEvent e)
+    void OnEntityDied(EntityDiedEvent e)
     {
         Debug.Log(e.entity != null
             ? $"[BattleManager] {e.entity.name} 阵亡（阵营 {e.team}）"
@@ -202,7 +213,7 @@ public class BattleManager : MonoBehaviour
             ? $"[BattleManager] 战斗结束：阵营 {winnerTeam} 获胜"
             : "[BattleManager] 战斗结束：没有幸存者（打平）");
 
-        EventPipeline.Send(BattleEvent.BattleEnded(winnerTeam));
+        EventPipeline.Send(new BattleEndedEvent(winnerTeam));
     }
 
     /// <summary>加载出来的对象统一挂到 mapPos 下（没配 mapPos 就放场景根）</summary>
