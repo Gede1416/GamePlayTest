@@ -35,7 +35,7 @@ public class TurnManager : MonoBehaviour
     [Tooltip("角色行动完等多久（秒）")]
     public float turnDelay = 0.2f;
 
-    [Tooltip("进入播放就开打")]
+    [Tooltip("进场就开打（由 BattleManager 在初始化完之后读它决定）")]
     public bool autoStart = true;
 
     /// <summary>行动栈：本回合的行动顺序（按先攻从高到低，每回合开始时重建）</summary>
@@ -59,18 +59,11 @@ public class TurnManager : MonoBehaviour
     /// <summary>行动栈里还剩几个没行动（含已被跳过但要到出栈时才判断的）</summary>
     public int StackLeft => Mathf.Max(0, ActionStack.Count - cursor);
 
-    // ---------- 生命周期 ----------
-
-    void Start()
-    {
-        if (autoStart) StartBattle();
-    }
-
     // ---------- 公开方法 ----------
 
     /// <summary>
-    /// 初始化：不传 data 就用场景里配好的（Inspector 字段）；
-    /// 传了 data 就用它覆盖参战列表、回合数与间隔。
+    /// 初始化：由 BattleManager 调用（回合管理器自己不用 Awake / Start）。
+    /// 不传 data 就保持现状；传了 data 就用它覆盖参战列表、回合数与间隔。
     /// </summary>
     public void Init(TurnInitData data = null)
     {

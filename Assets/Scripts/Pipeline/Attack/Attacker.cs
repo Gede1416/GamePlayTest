@@ -48,17 +48,14 @@ public class Attacker : MonoBehaviour
         }
     }
 
-    // ---------- 生命周期 ----------
+    // ---------- 公开方法 ----------
 
-    void Awake()
+    /// <summary>初始化：由 Entity.Init 调用（地图由上级发下来），这里只找身上的 Entity 并装配三段</summary>
+    public void Init()
     {
         self = GetComponent<Entity>();
-        if (map == null) map = FindObjectOfType<MapManager>();
-
         Build();
     }
-
-    // ---------- 公开方法 ----------
 
     /// <summary>按当前攻击类型装配三段（工厂造接口，这里只负责装上；也可以外部塞别的实现进来）</summary>
     public void Build()

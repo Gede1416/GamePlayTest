@@ -50,10 +50,6 @@ public class MapManager : MonoBehaviour
 
     // ---------- 生命周期 ----------
 
-    void Awake() => Build();
-
-    void Start() => ResetEntities();
-
     // 选中物体时在 Scene 视图画出格子线 + 被占用的格子；不需要可整段删掉
     void OnDrawGizmosSelected()
     {
@@ -77,7 +73,10 @@ public class MapManager : MonoBehaviour
 
     // ---------- 公开方法 ----------
 
-    /// <summary>重新构建网格并放好实体（外部想从头来一遍时调它）</summary>
+    /// <summary>
+    /// 初始化：由 BattleManager 调用（地图组件自己不用 Awake / Start）。
+    /// 先建网格，再按初始位置列表摆好实体并重建占用数据。
+    /// </summary>
     public void Init()
     {
         Build();

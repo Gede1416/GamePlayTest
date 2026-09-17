@@ -98,6 +98,8 @@ public class BattleManager : MonoBehaviour
             totalRounds = turnManager.totalRounds,          // 回合数与间隔沿用预制体上配的
             turnDelay = turnManager.turnDelay,
         });
+
+        if (turnManager.autoStart) turnManager.StartBattle();   // 开打由这里发起（回合管理器自己不用 Start）
     }
 
     /// <summary>开打（回合信息在 BuildBattle 里已经装好）</summary>

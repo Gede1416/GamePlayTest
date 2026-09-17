@@ -57,14 +57,6 @@ public class AutoPilot : MonoBehaviour
 
     // ---------- 生命周期 ----------
 
-    void Awake()
-    {
-        if (map == null) map = FindObjectOfType<MapManager>();
-        health = GetComponent<Health>();
-
-        Build();
-    }
-
     void OnDisable() => Stop();
 
     // 选中时画出当前路径
@@ -82,6 +74,13 @@ public class AutoPilot : MonoBehaviour
     }
 
     // ---------- 公开方法 ----------
+
+    /// <summary>初始化：由 Entity.Init 调用（地图由上级发下来），这里只找身上的 Health 并装配三段</summary>
+    public void Init()
+    {
+        health = GetComponent<Health>();
+        Build();
+    }
 
     /// <summary>按当前枚举装配三段（工厂造接口，这里只负责装上；也可以外部塞别的实现进来）</summary>
     public void Build()

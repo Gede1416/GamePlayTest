@@ -56,21 +56,11 @@ public class Entity : MonoBehaviour
         set { if (Pilot != null) Pilot.SourceType = value; }
     }
 
-    // ---------- 生命周期 ----------
-
-    void Awake()
-    {
-        CacheComponents();
-        if (map == null) map = FindObjectOfType<MapManager>();
-        if (uuid <= 0) Debug.LogWarning($"{name}: uuid 没配（<= 0），地图索引会用不了", this);
-
-        Init();     // 用场景里配好的数据装配
-    }
-
     // ---------- 公开方法 ----------
 
     /// <summary>
-    /// 初始化。不传 data：用场景里配好的（Inspector 字段）装配；
+    /// 初始化：由上级（BattleManager）调用，自己再把初始化发给身上的组件（Health → AutoPilot → Attacker）。
+    /// 不传 data：用预制体里配好的（Inspector 字段）装配；
     /// 传了 data：先用 data 覆盖，再装配（管线按新类型重建、步数补满）。
     /// </summary>
     public void Init(EntityInitData data = null)
@@ -87,18 +77,23 @@ public class Entity : MonoBehaviour
             if (Attacker != null) Attacker.Type = data.attackType;
         }
 
-        // 管线装配与步数下放都在组件内部（AutoPilot.Build / AutoPilot.ApplySteps / Attacker.Build），这里只把地图发下去
+        if (uuid <= 0) Debug.LogWarning($"{name}: uuid 没配（<= 0），地图索引会用不了", this);
+        if (map == null) Debug.LogWarning($"{name}: map 没配，移动 / 攻击管线拿不到地图数据", this);
+
+        // 地图由上级发下来，各组件只认自己的 Init（不再依赖 Awake / Start）
+        if (Health != null) Health.Init();
+
         if (Pilot != null)
         {
             Pilot.map = map;
-            Pilot.Build();
+            Pilot.Init();
             Pilot.ApplySteps(moveSteps);
         }
 
         if (Attacker != null)
         {
             Attacker.map = map;
-            Attacker.Build();
+            Attacker.Init();
         }
     }
 

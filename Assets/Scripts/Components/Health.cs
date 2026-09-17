@@ -20,11 +20,10 @@ public class Health : MonoBehaviour
     /// <summary>是否已阵亡</summary>
     public bool IsDead => Current <= 0f;
 
-    // ---------- 生命周期 ----------
-
-    void Awake() => Current = maxHealth;
-
     // ---------- 公开方法 ----------
+
+    /// <summary>初始化：由 Entity.Init 调用（组件自己不靠 Awake 干活），把当前值补满</summary>
+    public void Init() => Current = maxHealth;
 
     /// <summary>受到伤害：扣到 0 为止；死了就 SetActive(false)，伤害只从 Entity.TakeDamage 进来</summary>
     public void TakeDamage(float amount)
