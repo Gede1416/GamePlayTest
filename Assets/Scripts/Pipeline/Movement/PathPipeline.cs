@@ -48,6 +48,7 @@ public class BfsPathPlanner : IPathPlanner
 
     #region 公开方法
 
+    /// <summary>寻路就是问地图：把 start -> goal 的最短路径写进 path（不含起点）</summary>
     public bool TryBuild(Vector2Int start, Vector2Int goal, List<Vector2Int> path)
     {
         if (map == null) { path.Clear(); return false; }
@@ -90,6 +91,7 @@ public class MoverPathExecutor : IPathExecutor
 
     #region 公开方法
 
+    /// <summary>沿路径逐格插值移动：每格先问地图要落点（TryMove 裁决并维护占用），说不合法就停</summary>
     public IEnumerator Run(List<Vector2Int> path)
     {
         if (map == null || self == null || speed <= 0f) yield break;

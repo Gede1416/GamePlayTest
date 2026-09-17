@@ -46,13 +46,16 @@ public class CooldownCastCheck : ICastCheck, ICooldown
         this.cooldown = cooldown;
     }
 
+    /// <summary>进冷却：放成一次技能后由 Attacker 调</summary>
     public void StartCooldown() => CooldownLeft = cooldown;
 
+    /// <summary>回合推进：冷却减一</summary>
     public void TickTurn()
     {
         if (CooldownLeft > 0) CooldownLeft--;
     }
 
+    /// <summary>能不能放：施法者活着 且 冷却已经好了</summary>
     public bool CanCast(Entity caster)
     {
         if (caster == null || caster.Health == null || caster.Health.IsDead) return false;
@@ -122,6 +125,7 @@ public class MeleeTargetFinder : ITargetFinder
         this.map = map;
     }
 
+    /// <summary>按范围挑目标：Range 格内的 1 个最近的非己方</summary>
     public bool TryFindTargets(Entity caster, List<Entity> targets)
     {
         return TargetPicker.Pick(map, caster, Range, TargetCount, targets);
@@ -141,6 +145,7 @@ public class RangedTargetFinder : ITargetFinder
         this.map = map;
     }
 
+    /// <summary>按范围挑目标：Range 格内的 1 个最近的非己方</summary>
     public bool TryFindTargets(Entity caster, List<Entity> targets)
     {
         return TargetPicker.Pick(map, caster, Range, TargetCount, targets);
@@ -159,12 +164,14 @@ public class DamageCaster : ISkillCaster
         this.damage = damage;
     }
 
+    /// <summary>对每个目标扣 damage 血；没有目标就返回 false</summary>
     public bool Cast(Entity caster, List<Entity> targets)
     {
         if (caster == null || targets == null || targets.Count == 0) return false;
 
+        // 伤害只从 Entity 这个门面进去（Entity.TakeDamage 再转给 Health）
         foreach (var t in targets)
-            if (t != null && t.Health != null) t.Health.TakeDamage(damage);
+            if (t != null) t.TakeDamage(damage);
 
         Debug.Log($"[DamageCaster] {caster.name} 命中 {targets.Count} 个目标，每个 {damage} 伤害");
         return true;

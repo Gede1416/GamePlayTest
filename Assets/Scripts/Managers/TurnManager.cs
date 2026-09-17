@@ -99,8 +99,8 @@ public class TurnManager : MonoBehaviour
         State = TurnState.Idle;
     }
 
-    /// <summary>重建行动栈：先攻大的在前，相同则保持参战列表顺序</summary>
-    public void BuildActionStack()
+    /// <summary>重建行动栈：先攻大的在前，相同则保持参战列表顺序（每回合开始时内部调）</summary>
+    void BuildActionStack()
     {
         ActionStack.Clear();
         cursor = 0;
@@ -108,7 +108,7 @@ public class TurnManager : MonoBehaviour
     }
 
     /// <summary>出栈：下一个该行动的实体（已阵亡/被禁用的直接跳过），没有了返回 null</summary>
-    public Entity PopNext()
+    Entity PopNext()
     {
         while (cursor < ActionStack.Count)
         {

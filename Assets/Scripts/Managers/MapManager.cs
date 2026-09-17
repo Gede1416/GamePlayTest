@@ -5,7 +5,7 @@ using UnityEngine;
 /// 地图管理器（3D 俯视角，y 为高度）：
 /// 按地图 GameObject 的长宽（x / z）和单位距离划分 XZ 网格。
 /// 地图数据有两份索引：**格子→实体 uuid 的二维图**（cells），以及 **uuid→二维位置 / uuid→实体** 的字典；
-/// 占用判定、坐标换算、以后寻路都从这里问（外部只读，改数据只走 TryMove / CancelMove / SyncOccupied / ReleaseEntity）。
+/// 占用判定、坐标换算、寻路都从这里问（外部只读，改数据只走 TryMove / SyncOccupied）。
 /// 订阅了死亡消息：单位阵亡就把它的格子放开（见 OnEntityDied）。
 /// 成员顺序：属性 → 生命周期 → 公开方法 → 私有方法（各组内按调用顺序）。
 /// </summary>
@@ -103,7 +103,8 @@ public class MapManager : MonoBehaviour
         entities.Clear();
     }
 
-    public void Build()
+    /// <summary>按地图物体的包围盒和 cellSize 重新划分网格，并清空两份索引（Init 与 SyncOccupied 内部用）</summary>
+    void Build()
     {
         if (map == null || cellSize <= 0f) return;
 
@@ -119,8 +120,8 @@ public class MapManager : MonoBehaviour
         byUuid.Clear();
     }
 
-    /// <summary>把所有实体放回各自的初始位置（多余/缺位的实体保持原位），然后重建地图数据</summary>
-    public void ResetEntities()
+    /// <summary>把所有实体放回各自的初始位置（多余/缺位的实体保持原位），然后重建地图数据（Init 内部用）</summary>
+    void ResetEntities()
     {
         for (int i = 0; i < entities.Count && i < spawnPoints.Count; i++)
             if (entities[i] != null) entities[i].transform.position = CellToWorld(spawnPoints[i].x, spawnPoints[i].y);
@@ -174,10 +175,10 @@ public class MapManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 把一个单位从地图登记里摘掉并放开它占的格子（阵亡时走这里，物体本身由上级销毁）。
+    /// 把一个单位从地图登记里摘掉并放开它占的格子（收到死亡消息时走这里，物体本身由上级销毁）。
     /// 摘掉之后它不再是目标、也不再挡路；下次 SyncOccupied 也不会把它算回来。
     /// </summary>
-    public void ReleaseEntity(Entity entity)
+    void ReleaseEntity(Entity entity)
     {
         if (entity == null) return;
 
@@ -200,53 +201,33 @@ public class MapManager : MonoBehaviour
     #region 查询
 
     /// <summary>格子里的实体 uuid：空 = Empty(0)，占用但没登记 = Unknown(-1)</summary>
-    public int UuidAt(Vector2Int cell)
+    int UuidAt(Vector2Int cell)
     {
         if (cells == null || !InBounds(cell)) return Empty;
         return cells[cell.x, cell.y];
     }
 
     /// <summary>格子里的实体；空 / Unknown 都返回 null</summary>
-    public Entity EntityAt(Vector2Int cell)
+    Entity EntityAt(Vector2Int cell)
     {
         int id = UuidAt(cell);
         return id > Empty ? EntityOf(id) : null;
     }
 
-    /// <summary>一批格子里的实体（跳过空格与 Unknown）</summary>
-    public List<Entity> EntitiesAt(IEnumerable<Vector2Int> list)
-    {
-        var result = new List<Entity>();
-        if (list == null) return result;
-
-        foreach (var cell in list)
-        {
-            var e = EntityAt(cell);
-            if (e != null) result.Add(e);
-        }
-        return result;
-    }
-
     /// <summary>实体 uuid 对应的实体；没有返回 null</summary>
-    public Entity EntityOf(int uuid)
+    Entity EntityOf(int uuid)
     {
         return byUuid.TryGetValue(uuid, out var e) ? e : null;
     }
 
-    /// <summary>实体 uuid 当前所在的格子</summary>
-    public bool TryGetCell(int uuid, out Vector2Int cell)
-    {
-        return positions.TryGetValue(uuid, out cell);
-    }
-
     /// <summary>格子是否已被占用（没登记 uuid 的也算占用）</summary>
-    public bool IsOccupied(Vector2Int cell) => UuidAt(cell) != Empty;
+    bool IsOccupied(Vector2Int cell) => UuidAt(cell) != Empty;
 
     /// <summary>可进入 = 在网格内 且 未被占用</summary>
     public bool CanEnter(Vector2Int cell) => InBounds(cell) && !IsOccupied(cell);
 
     /// <summary>格子坐标是否在网格内（Vector2Int 的 x = 列，y = 行，不是世界高度）</summary>
-    public bool InBounds(Vector2Int cell)
+    bool InBounds(Vector2Int cell)
     {
         return cell.x >= 0 && cell.x < Cols && cell.y >= 0 && cell.y < Rows;
     }
@@ -295,17 +276,6 @@ public class MapManager : MonoBehaviour
         return true;
     }
 
-    /// <summary>移动没走到落点（被中断）：地图数据退回起点</summary>
-    public void CancelMove(Vector2Int from, Vector2Int to)
-    {
-        if (cells == null || !InBounds(from) || !InBounds(to)) return;
-
-        int id = cells[to.x, to.y];
-        cells[to.x, to.y] = Empty;
-        cells[from.x, from.y] = id;
-        if (id > Empty) positions[id] = from;
-    }
-
     #endregion
 
     #region 寻路
@@ -352,9 +322,9 @@ public class MapManager : MonoBehaviour
 
     #region 自检（右键组件菜单可跑）
 
-    /// <summary>自检：随便挑两个空格走一遍寻路，校验路径连续、可走、终点对得上</summary>
+    /// <summary>自检：随便挑两个空格走一遍寻路，校验路径连续、可走、终点对得上（右键组件菜单跑）</summary>
     [ContextMenu("自检：寻路")]
-    public void SelfCheckPath()
+    void SelfCheckPath()
     {
         if (cells == null) { Debug.LogWarning("[MapManager] 还没 Build，没有地图数据可查"); return; }
 
@@ -387,9 +357,9 @@ public class MapManager : MonoBehaviour
             : $"[MapManager] 寻路自检不通过：终点是 {prev}，应该是 {to}", this);
     }
 
-    /// <summary>自检：二维图与 uuid→位置/实体 两份索引是否一致</summary>
+    /// <summary>自检：二维图与 uuid→位置/实体 两份索引是否一致（右键组件菜单跑）</summary>
     [ContextMenu("自检：地图数据一致性")]
-    public void SelfCheck()
+    void SelfCheck()
     {
         if (cells == null) { Debug.LogWarning("[MapManager] 还没 Build，没有地图数据可查"); return; }
 
