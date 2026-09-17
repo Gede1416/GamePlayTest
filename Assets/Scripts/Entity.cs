@@ -52,6 +52,8 @@ public class Entity : MonoBehaviour
     /// <summary>攻击管线组件，可能没有（没有就只移动不攻击）</summary>
     public Attacker Attacker { get; private set; }
 
+    DeathEffect deathEffect;      // 阵亡表现组件，可能没有（没有就直接停用自己）
+
     /// <summary>移动管线类型：数据归 AutoPilot，这里只是转发（改它会重建移动管线阶段一）</summary>
     public TargetSourceType SourceType
     {
@@ -64,7 +66,7 @@ public class Entity : MonoBehaviour
     #region 公开方法
 
     /// <summary>
-    /// 初始化：由上级（BattleManager）调用，自己再把初始化发给身上的组件（Health → AutoPilot → Attacker）。
+    /// 初始化：由上级（BattleManager）调用，自己再把初始化发给身上的组件（Health → DeathEffect → AutoPilot → Attacker）。
     /// 不传 data：用预制体里配好的（Inspector 字段）装配；
     /// 传了 data：先用 data 覆盖，再装配（管线按新类型重建、步数补满）。
     /// </summary>
@@ -89,6 +91,8 @@ public class Entity : MonoBehaviour
 
         // 地图由上级发下来，各组件只认自己的 Init（不再依赖 Awake / Start）
         if (Health != null) Health.Init();
+
+        if (deathEffect != null) deathEffect.Init();
 
         if (Pilot != null)
         {
@@ -125,11 +129,12 @@ public class Entity : MonoBehaviour
         Attacker?.RunPipeline();                                 // 攻击 2
     }
 
-    /// <summary>清理：把清理发给身上的组件（Attacker → AutoPilot → Health，与初始化相反的顺序），由 BattleManager 统一调</summary>
+    /// <summary>清理：把清理发给身上的组件（Attacker → AutoPilot → DeathEffect → Health，与初始化相反的顺序），由 BattleManager 统一调</summary>
     public void Clear()
     {
         if (Attacker != null) Attacker.Clear();
         if (Pilot != null) Pilot.Clear();
+        if (deathEffect != null) deathEffect.Clear();
         if (Health != null) Health.Clear();
     }
 
@@ -151,6 +156,7 @@ public class Entity : MonoBehaviour
         if (Pilot == null) Pilot = GetComponent<AutoPilot>();
         if (Health == null) Health = GetComponent<Health>();
         if (Attacker == null) Attacker = GetComponent<Attacker>();
+        if (deathEffect == null) deathEffect = GetComponent<DeathEffect>();
     }
 
     #endregion

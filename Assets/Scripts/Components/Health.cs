@@ -2,7 +2,8 @@ using UnityEngine;
 
 /// <summary>
 /// 生命值。挂在可被攻击的物体上。
-/// 死亡逻辑单独放在 Die()：扣血流程只负责把血扣到 0 再交给它，它负责停用自己并发出死亡消息。
+/// 死亡逻辑单独放在 Die()：扣血流程只负责把血扣到 0 再交给它，它负责判定死亡并发出死亡消息。
+/// "停用自己"这一步：有 DeathEffect（阵亡淡出）就交给它，淡完由它停用；没有就直接停用。
 /// 对外发三种消息：DamageEvent（伤害数字）、HealthChangedEvent（血条）、EntityDiedEvent（阵亡结算）。
 /// 成员顺序：属性 → 生命周期 → 公开方法 → 私有方法（各组内按调用顺序）。
 /// </summary>
@@ -22,17 +23,19 @@ public class Health : MonoBehaviour
     /// <summary>是否已阵亡</summary>
     public bool IsDead => Current <= 0f;
 
-    Entity owner;      // 发死亡消息时要带上它
-    bool dead;         // 死亡流程走过没有（防止重复发消息）
+    Entity owner;              // 发死亡消息时要带上它
+    DeathEffect deathEffect;   // 阵亡淡出组件，可能没有
+    bool dead;                 // 死亡流程走过没有（防止重复发消息）
 
     #endregion
 
     #region 公开方法
 
-    /// <summary>初始化：由 Entity.Init 调用（组件自己不靠 Awake 干活）：记住主人、补满血、报一次生命变化</summary>
+    /// <summary>初始化：由 Entity.Init 调用（组件自己不靠 Awake 干活）：记住主人与死亡表现、补满血、报一次生命变化</summary>
     public void Init()
     {
         owner = GetComponent<Entity>();
+        deathEffect = GetComponent<DeathEffect>();
         dead = false;
         Current = maxHealth;
         SendChanged();
@@ -57,14 +60,18 @@ public class Health : MonoBehaviour
         if (IsDead) Die();
     }
 
-    /// <summary>死亡：单独处理死亡逻辑——停用自己 + 发死亡消息（同一条命只走一次）</summary>
+    /// <summary>死亡：单独处理死亡逻辑——交给死亡表现（没配就直接停用自己）+ 发死亡消息（同一条命只走一次）</summary>
     public void Die()
     {
         if (dead) return;
 
         dead = true;
         Current = 0f;
-        gameObject.SetActive(false);
+
+        // 表现与逻辑分开：逻辑（结算 / 放开格子）立刻生效，淡出只是跟着走
+        if (deathEffect != null) deathEffect.Play();
+        else gameObject.SetActive(false);
+
         EventPipeline.Send(new EntityDiedEvent(owner, team));
     }
 
