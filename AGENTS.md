@@ -80,23 +80,13 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 
 ## MaterialPropertyBlock 批处理测试场（Assets/Scenes/MPBTestScene.unity）
 
-**先回答「这个项目能不能用这些技术」**（2026-09-17 核实，结论都有出处）：
+**结论（2026-09-17 核实，都有出处）**：项目是 **Built-in RP**（没有 URP / HDRP 包）→ **没有 SRP Batcher**，「MPB 破坏 SRP Batcher」不适用；
+Built-in 下 MPB 是喂 GPU Instancing 逐实例数据的正道，但属性必须在着色器里声明成逐实例（`UNITY_DEFINE_INSTANCED_PROP`），
+**本机 2022.3.62 的内置 Standard 就是反例**（`_Color` 是普通 uniform）→ **`DeathEffect` 现在这种「MPB 改 Standard 的 `_Color`」写法，只要材质勾了 Enable GPU Instancing 就会把渲染器踢出 instancing**；
+项目现在三个材质都没勾 Enable GPU Instancing（静态批处理开、动态批处理关），所以**战斗单位一个都没走 instancing**。
 
-- 渲染管线：`GraphicsSettings.asset` 里 `m_CustomRenderPipeline: {fileID: 0}`、`Packages/manifest.json` 里没有 URP / HDRP 包 → **Built-in RP**。
-  所以**本项目根本没有 SRP Batcher**，「MPB 破坏 SRP Batcher」这条对本项目不适用，换 URP / HDRP 才会遇到。
-- Built-in 下 MPB 是喂 GPU Instancing 逐实例数据的正道（官方示例就是 MPB + `_Color`），但**前提是那个属性在着色器里声明成逐实例属性**
-  （`UNITY_DEFINE_INSTANCED_PROP`）。官方原话：**不要把非 instanced 属性放进 MPB，那会禁用 instancing**。
-  **本机 Unity 2022.3.62 的内置 Standard 着色器就是反例**——`CGIncludes/UnityStandardInput.cginc` 里 `half4 _Color;` 是普通 uniform，
-  整个 Standard 系没有逐实例材质属性（只有引擎自带的 PerDraw / Sprite 缓冲）。**所以 `DeathEffect` 现在这种「MPB 改 Standard 的 `_Color`」写法，
-  只要材质勾了 Enable GPU Instancing，就会把这个渲染器踢出 instancing**。
-- 项目现状：静态批处理开、动态批处理关（`ProjectSettings.asset` 的 `m_StaticBatching` / `m_DynamicBatching`）；
-  三个材质（entity / ground / skill）都是 Standard 且 `m_EnableInstancingVariants: 0`（Inspector 里 Enable GPU Instancing 没勾）
-  → **现在的战斗单位一个都没走 GPU Instancing**，要用得先勾上（勾上后逐实例数据还得走「逐实例属性」那条路，见上一条）。
-
-**怎么用**：打开场景按播放，左上角 HUD（IMGUI，文字英文——默认字体没有中文字形）列 6 种模式与实时读数。
-按 1→6 走一遍会攒出一张「同数量下 batches / setpass / 材质数」对照表；`[` `]` 换数量档（100 / 500 / 2000 / 5000）、
-`空格` 切每帧写 MPB 的动画、`S` 切静态批处理（重建时调 `StaticBatchingUtility.Combine`）、`R` 重建；
-配合 Window > Analysis > Frame Debugger 看每个 draw call 到底为什么合批 / 为什么没合批。
+**怎么用**：打开 `MPBTestScene` 按播放，左上角 IMGUI 列 6 种模式与实时读数（Batches / SetPass / Draw Calls，走 `ProfilerRecorder`，等同 Stats）。
+按 1→6 走一遍攒出「同数量下 batches / setpass / 材质数」对照表；`[` `]` 换数量档（100 / 500 / 2000 / 5000）、`空格` 切每帧写 MPB 的动画、`S` 切静态批处理、`R` 重建；配合 Frame Debugger 看为什么（没）合批。
 
 | 模式 | 做法 | 该看到什么 |
 |---|---|---|
@@ -104,17 +94,12 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 | 2 | Standard + 开 GPU Instancing + MPB 逐实例 `_Color` | `_Color` 不是逐实例属性 → instancing 被禁用，批次数 ≈ 方块数 |
 | 3 | `MPBTint`（`_Color` 声明在 `UNITY_INSTANCING_BUFFER`）+ MPB | **正道**：逐实例颜色 + 仍然 1 个 draw call |
 | 4 | 同 3，但材质关掉 Enable GPU Instancing | 没有 instancing 兜底时，MPB 换不来合批 |
-| 5 | 每物体一份 `renderer.material` | 反面教材：材质数 = 方块数，SetPass 暴涨（官方警告 `material` 会复制材质） |
-| 6 | `Graphics.DrawMeshInstanced` + MPB 数组 | 1 次调用画 1023 个，完全绕开 GameObject / Renderer |
+| 5 | 每物体一份 `renderer.material` | 反面教材：材质数 = 方块数，SetPass 暴涨 |
+| 6 | `Graphics.DrawMeshInstanced` + MPB 数组 | 1 次调用画 1023 个，绕开 GameObject / Renderer |
 
-- 文件：脚本 `Assets/Scripts/MPBTest/MPBTestManager.cs`（**自己按 `Awake → Build()` 起，没挂进战斗的 Init 链**）、
-  着色器 `Assets/MPBTest/MPBTint.shader`、场景 `Assets/Scenes/MPBTestScene.unity`
-  （只有 Main Camera + Directional Light + `MPBTest` 一个物体，方块全部运行期造；相机由脚本按方块规模摆，
-  灯光**阴影关掉**——阴影 pass 会让批次数翻倍，读数不好看）
-- 读数用 `ProfilerRecorder`（Batches / SetPass Calls / Draw Calls，等同于 Stats 面板）；拿不到就显示 n/a，看 Game 视图 Stats 面板
-- 缺口（有意）：着色器靠 `Shader.Find("MPBTest/Tint")` 找，**打包时会因没人引用被剔除**（编辑器里没影响，要打包就给它建个材质资产）；
-  HUD 是 IMGUI 英文；没有自动跑分（要自己按 1→6）；`Assets/Scenes/test.unity` 是用户自己的临时场景（未入库），本测试场没动它
-- 提交场景改动前的自检：`python _validate_scene.py Assets/Scenes/MPBTestScene.unity`（脚本现在支持传场景路径，默认仍查主场景）
+- 文件：`Assets/Scripts/MPBTest/MPBTestManager.cs`（自己 `Awake → Build()` 起，没挂进战斗的 Init 链）、`Assets/MPBTest/MPBTint.shader`、`Assets/Scenes/MPBTestScene.unity`（只有相机 / 灯光 / `MPBTest` 一个物体，方块运行期造，灯光阴影关掉）。
+- 有意留下的缺口：着色器靠 `Shader.Find` 找，**打包会被剔除**（要打包就给它建个材质资产）；HUD 是英文 IMGUI；跑分要自己按 1→6。
+- 提交这个场景改动前的自检：`python _validate_scene.py Assets/Scenes/MPBTestScene.unity`（脚本支持传场景路径，默认查主场景）。
 
 ## 约定
 
@@ -142,13 +127,10 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 - **属性标签横排一行**：同一个字段上的多个特性写在同一行，例如 `[Tooltip("技能类型：近战 / 远程 / 施放 buff")] public SkillType type = SkillType.Melee;`（`[Header(...)]` 也照样接在同一行）。
 - **代码分块用 `#region` / `#endregion`**：每个类里四段各一个 region（`属性` / `生命周期` / `公开方法` / `私有方法`），构造函数单独一个 `构造` region；`公开方法` 内部的语义子块（`查询` / `移动裁决` / `寻路` / `自检`）用**嵌套** region；region 与它包住的成员同缩进。方法体内部的注释块仍用 `// ---------- xxx ----------`（方法里不套 region）。只有一组公开静态方法的工厂类（`*PipelineFactory`）不用分块。
 - **事件走泛型 `EventPipeline`**：`Subscribe<T>(处理函数)` / `Unsubscribe<T>(...)` / `Send(new XxxEvent(...))`，按类型分发（`Dictionary<Type, Delegate>`），**加新事件只要在 `BattleEvents.cs` 加一个数据类，管线本身一行都不用改**。现在的收发关系：
-  - `TurnChangedEvent`：`TurnManager` 每回合开头发 → `BattleUIManager` 刷新回合数 + 各技能的 `CooldownCastCheck` 把冷却减一
-  - `DamageEvent`：`Health.TakeDamage` 发 → `BattleUIManager` 在被打实体头顶飘伤害数字
-  - `HealthChangedEvent`：`Health.Init` / `TakeDamage` 发 → `HealthBar` 刷新条子（血条自己还持有 `Health` 取初值）
-  - `EntityDiedEvent`：`Health.Die` 发 → `BattleManager`（统计存活阵营 / 判胜负）+ `MapManager`（放开格子）
-  - `EntitySpawnedEvent`：`BattleManager.InitBattle` 每个实体 Init 完发 → `BattleUIManager` 给它挂血条
-  - `BuffChangedEvent`：`BuffManager` 在挂上 / 有 buff 到期 / 清场时发 → `BuffBar` 重拼自己那条 buff 条
-  - `BattleEndedEvent`：`BattleManager.EndGame` 发 → `BattleUIManager` 显示胜方阵营
+  - `TurnChangedEvent`（TurnManager 每回合开头发）：BattleUIManager 刷回合数 + 各技能的 `CooldownCastCheck` 冷却减一
+  - `DamageEvent`（Health.TakeDamage）/ `HealthChangedEvent`（Health.Init / TakeDamage）：UI 飘伤害数字 / 血条刷新
+  - `EntityDiedEvent`（Health.Die）：BattleManager 判胜负 + MapManager 放开格子；`EntitySpawnedEvent`（InitBattle）：UI 挂血条
+  - `BuffChangedEvent`（BuffManager 挂上 / 到期 / 清场）：BuffBar 重拼文字；`BattleEndedEvent`（EndGame）：UI 显示胜方
   订阅在各自的 `Init()` 里订、`Clear()` 里退订（`MapManager.Init` 是先退订再订，重复 Init 也不会订两遍），`BattleManager.ClearBattle()` 末尾再用 `EventPipeline.Clear()` 兜一道。
 - 需要可视化的逻辑（如网格划分）用 `OnDrawGizmosSelected` 画出来核对，不写单元测试。
 
@@ -164,49 +146,21 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 - **Buff 界面**：buff 条显示的是"类型名 + 剩余结算次数"的文字（`Heal(3) Move(2)`），因为默认字体没有中文字形，只能英文 / 数字；没有图标、层数徽章、进度条，一个类型的多条会各占一段（队列里有几条就显示几段）；显示样式（字号 / 颜色 / 偏移）全在 `BuffBar.prefab` 里调，别在代码里改；一帧内多次变动（例如一次挂两条）会刷多次，现在没做合并；buff 条和血条都挂在实体的 UI 点位下，位置靠各自预制体里的局部坐标错开
 - `TurnManager`：行动内容写死在 `Entity.TakeTurnRoutine()` 里（固定 放技能-移动-再放技能，没做成可配置的行动序列；换顺序就改它）；状态只能轮询 `State` / `IsFinished`，没有回合开始/结束事件；行动栈每回合重建一次，**回合中不重排**（先攻变了要等下回合）；先攻相同时按列表顺序而不掷骰；没有"跳过/延后/守卫"这类规则
 - `Entity` / `PathPipelineFactory`：先攻只有 `Entity.initiative` 一份（`TurnManager` 的排序和行动都走 Entity）；`moveSteps` 仍是 Entity 的数据，靠 `AutoPilot.ApplySteps(moveSteps)` 存进 AutoPilot（只有"远离"挑落点时当预算，阶段三不扣步数）；移动管线的装配在 `AutoPilot.Build()`（`Entity.Init` 只把地图发下去再调它），每调一次就重建三段（正常运行中重复调不会打断正在走的协程）
-- `SkillManager` / 技能：已接进回合（`Entity.TakeTurnRoutine()` 里放技能-移动-再放技能，第二遍只补放"走完才够得着"的那次，放成过的会被各自的释放判断挡住）；**额度 / 冷却全在释放判断里**——冷却（`CooldownCastCheck`，≥ 1 顺带就是每回合一次）、一场一次（`OnlyCastOnceCastCheck`）、血量没满（`WoundedCastCheck`），判据都是**使用次数缓存**（`caster.Skills.UsedCount(技能名)`），管理器一条判断都不补；**"刚放成过"是靠次数涨了看出来的**（判断在 `CanCast` 里轮询），没有"放成了"这条消息；额度只看"放成没放成"（空放不占名额，移动后还能补一次），**没有"驱散 / 免疫 / 沉默"这类拦截**；次数按**技能名**记账，所以同一实体配两条同名技能会共用一个次数；治疗只看**施法者自己**的血量（队友 / 目标的血量条件没做），而且只判断"不满就放"——治疗量会不会溢出上限由 `Health.Heal` 自己截断；治疗不限场次，唯一刹车是"冷却 1 + 血量没满"，也就是**只要还伤着就每回合续一条治疗 buff**（同名 buff 会叠加，层数没有上限）；攻击目标从 `MapManager.entities` 里找、只认"挂了 `Entity` 且有 `Health`"的非己方且活着的单位、按曼哈顿距离排序，阶段二每次调用**新造一个目标列表**（没有共用缓冲了）；上 buff 的技能目标是自己（`SelfTargetFinder`），给队友 / 敌人的 buff 技能还没做；`DamageCaster` 只扣血、`BuffCaster` 只挂 buff（没有击退 / 动画表现）；远程没有视线 / 弹道判定（只看格子距离）；近战 / 远程的范围是各自 finder 里的常量（现在 1 / 3），伤害 / 冷却 / 挂哪种 buff 是各自组合技能里的常量——**预制体上只配技能名**（`skillTypes` 列表），想在 Inspector 里调数值 / 加中途 buff 这类自由都没有，要改就改组合类；四个组合类的三段聚合循环是**重复的**（要不要抽个基类再说）；`CooldownCastCheck` 在构造函数里订 `TurnChangedEvent`、**自己不退订**（靠 `BattleManager.ClearBattle()` 末尾的 `EventPipeline.Clear()` 兜，所以同一场战斗里重复调 `SkillManager.Build()` 会订两遍、冷却一次减二）；旧的碰触体 `Attack` 与最早的技能管理器都已删除，技能只有技能管线一条路；界面上没有技能额度 / 冷却显示，只能靠 `[ContextMenu]` 打印或看日志
+- `SkillManager` / 技能：已接进回合（放技能 → 移动 → 再放技能，第二遍只补放走完才够得着的那次）。**额度 / 冷却全在释放判断里**（冷却 ≥ 1 顺带就是每回合一次、一场一次、血量没满），判据是**使用次数缓存**，管理器一条判断都不补；"刚放成过"是判断在 `CanCast` 里轮询次数涨没涨看出来的，**没有"放成了"这条消息**；没有"驱散 / 免疫 / 沉默"拦截；次数按**技能名**记账（同一实体配两条同名技能会共用一个次数）。治疗只看施法者自己的血量、只判"不满就放"（溢出由 `Health.Heal` 截断），不限场次 → **只要还伤着就每回合续一条治疗 buff**（同名会叠、无上限）。攻击目标来自 `MapManager.entities`（非己方且活着，按曼哈顿距离排序），阶段二每次**新造一个目标列表**；上 buff 的技能目标是自己，给队友 / 敌人的 buff 技能没做；远程没有视线 / 弹道判定（只看格子距离）；范围 / 伤害 / 冷却 / buff 种类都是各自零件与组合类的常量，**预制体上只配技能名**；`CooldownCastCheck` 在构造函数里订 `TurnChangedEvent` 且**不退订**（靠 ClearBattle 末尾的 `EventPipeline.Clear()` 兜，同一场里重复 `Build()` 会订两遍、冷却一次减二）；组合类的聚合循环是重复的（要不要抽基类待定）；界面上没有技能额度 / 冷却显示，只能靠 `[ContextMenu]` 打印或看日志
 - 预制体：`Assets/prefab/*.prefab` 都是运行时实例化的（战斗对象由 `BattleManager` 加载，血条 / 伤害数字由 `BattleUIManager` 按事件加载；场景里只有 BattleManager / map_pos / BattleCanvas）；跨对象引用进不了预制体，所以 `map` / `entities` / `actors` 这些槽由 `BattleManager` 填（见「场景」一节）；预制体目前是**手工维护**的，改了结构要自己存（原来那个按名字导出的 `BattlePrefabExporter` 已经删掉）
 - `Entity.uuid`：在预制体上手填（`Ranger.prefab` uuid 1、`Melee.prefab` uuid 2）；`SyncOccupied()` 现在会查重但**只警告不修正**（重复时后者这次被跳过），uuid 分配器还没做
 - `BattleManager`：预制体靠 Inspector 里手填的**路径字符串**加载——`LoadPrefab` 先按文件名走 `Resources.Load`，编辑器里再退回 `AssetDatabase.LoadAssetAtPath`，所以现在不改目录就能跑，但**打包后必须把预制体放进某个 `Resources` 目录**；清场用 `Destroy`（当帧末尾才真销毁，重开那一帧新旧对象并存，靠显式发地图引用避开旧地图）；实体初始位置完全依赖地图预制体上的 `spawnPoints`（数量不够的实体留在被实例化的位置）；`BuildBattle()` 装完会看 turn 预制体的 `autoStart` 决定要不要立刻开打（**现在 turn1.prefab 里是关的**，所以等场景里的 `StartButton` 点一下）；`StartBattle()` / `RebuildBattle()` / `ClearBattle()` 都可以外部随时调——目前 `StartButton` 接 `StartBattle()`、`RebuildButton` 接 `RebuildBattle()`；**组件都不再有 `Awake` / `Start` 初始化，只有 `BattleManager.Awake` 是入口**——谁没被 `Init()` 调到谁就不工作
 - `EventPipeline`：静态总线（全局单例语义）——按类型分发、同一类型可订多个、按订阅顺序回调，没有优先级 / 取消 / 一次性订阅；`Clear()` 会清掉**所有类型**的订阅（`BattleManager.ClearBattle` 末尾调一次兜底，谁在它之后才订阅就会被误清，加订阅者时注意）；订阅用方法组（`Subscribe<T>(OnXxx)`），退订必须传同一个方法组——**别用 lambda 订阅**（lambda 退不掉）
 - 战斗结束：`BattleManager.EndGame()` 直接调 `TurnManager.Clear()` 让回合停手，所以结束后 `TurnState` 是 `Idle`（不是 `Finished`）、参战列表也空了；要区分"打完了"可以再给 `TurnManager` 一个结束态
-- **界面（UI）**：文字全部用 TMP（场景 HUD 两个文字 + 两个按钮标签 + 伤害数字），血条是预制体（内部是**世界空间 Canvas**，这样两张 Image 只用内置 UISprite，不需要美术资源）；**现在用的默认字体资源 `LiberationSans SDF` 同样没有中文字形，界面文字只能英文 / 数字**（`Round x/y` / `Team 0 Wins` / `Draw` / `Start` / `Rebuild`），要中文得自己做一个带中文字形的 TMP 字体资源（并在 TMP Settings 里设成回退）；TMP Essential Resources（`Assets/TextMesh Pro/`）已入库，缺了文字根本不显示；血量条没有缓动、没有数字文本，伤害数字不合并同帧多次伤害、不加暴击 / 治疗前缀；字号、条宽、上飘高度这些是拍的初值，**没在播放模式下看过，需要在 Inspector / 预制体里微调**；世界空间 Canvas 每帧转向相机（`Camera.main`），场景里没有主相机会看不到血条与伤害数字；开始 / 重开按钮点完不会自己隐藏 / 禁用（重复点是安全的：`TurnManager.StartBattle` 在跑的时候直接返回、`RebuildBattle` 会先清场）
+- **界面（UI）**：文字全用 TMP（HUD 两个文字 + 两个按钮标签 + 伤害数字 + buff 条）；**默认字体 `LiberationSans SDF` 没有中文字形，界面文字只能英文 / 数字**（`Round x/y` / `Team 0 Wins` / `Draw` / `Start` / `Rebuild`），要中文得自己做带中文字形的 TMP 字体并在 TMP Settings 设回退；TMP Essential Resources 已入库，缺了文字不显示；血条 / buff 条挂在实体 UI 点位下（世界空间 Canvas + 内置 UISprite），每帧转向 `Camera.main`（**场景里没主相机就看不到**）；血条没有缓动 / 数字，伤害数字不合并同帧多次、不加暴击前缀；开始 / 重开按钮点完不会自己隐藏（重复点是安全的）
 - 脚本都还没在播放模式下跑过（两个角色都没有 Rigidbody，移动是直接写 `transform.position`）
 
-## 按用户给的结构做的重构（进度）
+## 重构现状
 
-- **P1 实体数据** ✅ `Entity`：uuid / 先攻(`initiative`) / 回合步数 / 生命值门面（`Hp`/`TakeDamage`，数据仍归 `Health`）/ `Init(EntityInitData)`；技能由管线组件承担，不单独存
-- **P2 地图数据** ✅ `MapManager`：`int[,] cells` 格子→uuid 二维图 + `Dictionary<int,Vector2Int>` uuid→位置（+ uuid→实体），查询 API 与 uuid 查重
-- **P3 寻路** ✅ 搬进 `MapManager.FindPath`，`BfsPathPlanner` 退成薄壳
-- **P4 回合** ✅ `TurnManager`：行动栈 `ActionStack`（每回合按先攻重建，`PopNext()` 出栈）+ `TurnState` 状态 + `Init(TurnInitData)`
-- **P5 移动管线「接近」** — 用户确认是笔误（现有 靠近/远离 即全部），未做
-- **P6 收尾** ✅ 场景 / 预制体同步 + 本文档校对
-- **额外清理** ✅ 删掉旧技能系统的残留：`SkillManager`、碰触体 `Attack` 与 4 个 `skill_*` 子物体（攻击只剩攻击管线一条路）；预制体当时由 `BattlePrefabExporter` 重新导出（该工具后来随场景改造成预制体加载而删除）
-- **额外清理** ✅ 删掉 `ObjectMover` 组件：移动逻辑坍缩进阶段三 `MoverPathExecutor.Run()`（直接改实体坐标），速度改挂 `AutoPilot.speed`，本回合步数留在 `AutoPilot.ApplySteps` 供"远离"当预算，`Entity.Mover` 一并移除
-- **额外清理** ✅ 新增 `BattleManager`（战场统一管理）：把「加载 → 初始化」包成 `BuildBattle()`，另加 `ClearBattle()` 清场、`RebuildBattle()` = 清场 + 重新加载；`Entity.Init` 现在把地图也发给 `Attacker`
-- **初始化收拢** ✅ 地图 / 回合 / 攻击 / 生命 / 移动组件的初始化全部搬进 `Init()`，由上级调用（BattleManager → MapManager·Entity·TurnManager，Entity → Health·AutoPilot·Attacker），组件不再自带 `Awake` / `Start` 初始化，也不再 `FindObjectOfType` 找地图（地图一律由上级发下来）
-- **清理接口** ✅ 每个组件都暴露 `Clear()`，统一由 `BattleManager.ClearBattle()` 按 回合 → 实体 → 地图 调用（`Entity.Clear()` 再转发 Attacker / AutoPilot / Health）；`TurnManager` 去掉 `StopBattle()`，只保留 `StartBattle()`（只管开始），停止与复位一律由战斗管理器清理
-- **事件与结算** ✅ 新增基础事件管线 `EventPipeline`（`Send` / `Subscribe` / `Unsubscribe` / `Clear` + `BattleEvent` / `BattleEventType`）；`Health` 抽出 `Die()` 单独处理死亡并 `Send(EntityDied)`；`BattleManager` 收死亡消息、统计存活阵营，只剩一个（或全灭）就 `EndGame()` 让回合停手并发 `BattleEnded`；`MapManager` 也订同一条消息，阵亡即 `ReleaseEntity()` 放开格子
-- **地图数据瘦身** ✅ `MapManager` 删掉 `Dictionary positions`（uuid→位置）与 `byUuid`（uuid→实体）：两者当时只被彼此的维护代码和 `EntityAt` / `EntityOf` 用到，而这两个查询没有任何调用者；`ReleaseEntity` 改为按单位所在坐标放开格子，`SyncOccupied` 的 uuid 查重改用局部表，`SelfCheck` 改成查"每个 uuid 恰好占一格"
-- **二维图读写包装** ✅ `MapManager` 内部不再直接下标访问 `cells`：读写走 `UuidAt` / `SetUuid` / `ClearCells`，判空走 `HasGrid`（裸下标只剩在这两个方法里），`IsOccupied` 合并进 `CanEnter`
-- **可见性收紧 + 补说明** ✅ 扫了一遍公开面：只在自己类里用的收成 private（`MapManager.Build` / `ResetEntities` / `ReleaseEntity` / `UuidAt` / `EntityAt` / `EntityOf` / `IsOccupied` / `InBounds` / `SelfCheck*`，`TurnManager.BuildActionStack` / `PopNext`），没人用的直接删（`MapManager.EntitiesAt` / `TryGetCell` / `CancelMove`）；伤害改走 `Entity.TakeDamage` 门面（原先 `DamageCaster` 直接调 `Health`）；给管线各实现补上缺的 `<summary>`
-- **UI 系统 + 泛型事件管线** ✅ `EventPipeline` 改成按类型收发的泛型管线，事件定义独立到 `BattleEvents.cs`（加事件不用改管线）；新增 `Assets/Scripts/UI/`：`BattleUIManager`（回合数 / 伤害数字 / 胜方显示 + 给实体挂血条）、`HealthBar`（绑 Health，事件刷新 + LateUpdate 贴点位转向相机）、`DamagePopup`（伤害数字上飘淡出）；`Health` 发伤害 / 生命变化消息，`TurnManager` 每回合发回合刷新消息，`BattleManager` 发实体就绪与战斗结束消息并把界面接管进 Init / Clear；`Entity` 加 `uiPoint` 点位（留空自动建在头顶）
-- **界面改成 Canvas + 预制体** ✅ HUD 从相机下的 `TextMesh` 换成场景 `BattleCanvas`（Overlay + 两个 uGUI `Text`，直接引用）；血条与伤害数字改为 `Assets/prefab/HealthBar.prefab` / `DamagePopup.prefab`，由 `BattleUIManager` 用新增的 `PrefabLoader` 加载后实例化到实体的 UI 点位下；三个界面脚本都不再在代码里拼 GameObject / 精灵 / 文字，只留绑定、刷新、销毁
-- **开始按钮** ✅ 场景 `BattleCanvas` 下加 `StartButton`（Image + Button + `Start` 文字），onClick 接 `BattleManager.StartBattle()`；Canvas 补上 `GraphicRaycaster` 让点击能送达（配合原有 EventSystem）；`turn1.prefab` 的 `autoStart` 关掉，改成由按钮开打
-- **界面文字改用 TMP** ✅ 场景里 3 处 uGUI `Text` 与 `DamagePopup.prefab` 里的文字都换成 `TextMeshProUGUI`，两个 UI 脚本的字段类型跟着改成 `TMP_Text`；`Assets/TextMesh Pro/`（TMP Essential Resources）随代码入库，不然文字加载不到字体不显示
-- **重新开战按钮** ✅ 场景 `BattleCanvas` 下补 `RebuildButton`（Image + Button + `Rebuild` 文字）接 `BattleManager.RebuildBattle()`，两个按钮一起放进新建的容器 `GameObject` 里
-- **阵亡淡出** ✅ 新增 `Components/DeathEffect.cs`：`Health.Die()` 里"停用自己"改成交给死亡表现（没挂该组件时照旧直接停用），它用 `MaterialPropertyBlock` 把 `_Color` 的 alpha 从 1 淡到 0、淡完再停用；两个实体材质切成标准着色器的 Fade 模式（Opaque 下 alpha 会被丢掉），Melee / Ranger 预制体各挂一个
-- **Buff 系统** ✅ 新增 `Assets/Scripts/Buffs/`：`BuffManager`（队列 + 每次结算轮转一圈，过期的移除后不再入队）、`Buff`（配置 + 效果 + 目标，Add / Trigger / Remove）、`BuffEffect`（`IBuffEffect` + 治疗 / 加步数 / 加攻击三个无状态实现）、`BuffFactory`（枚举 + 数值常量）；`Entity` 补上 buff 侧门面（`AddBuff` / `Heal` / `AddMoveSteps` / `AddDamage`），底下分别落到 `BuffManager` / `Health.Heal` / `Entity.moveSteps` / `SkillManager.AddDamage`；结算挂在 `Entity.TakeTurnRoutine()` 开头，两个实体预制体各挂一个 `BuffManager`
-- **技能管线** ✅ 攻击管线改名技能管线：`Attacker` → `SkillManager`（手里一组技能）、`AttackPipeline` → `SkillPipeline`、`AttackPipelineFactory` → `SkillPipelineFactory`、`AttackType` → `SkillType`（Melee / Ranged / Buff），文件与 `.meta` 一起改名所以 guid 没变、预制体引用没断；新增 `Skill` / `SkillCfg`（配置在预制体、运行期状态在 Skill）与两条额度（每技能每回合一次、buff 技能一场一次）；阶段二加 `SelfTargetFinder`、阶段三加 `BuffCaster`；`Entity` 门面 `Attacker` → `Skills`，`AddBuff` 支持指定目标，`EntityInitData` 去掉 `attackType`
-- **治疗技能的血量判断** ✅ 阶段一新增 `WoundedCastCheck`（继承 `CooldownCastCheck`，`CanCast` 改成 virtual）：活着 + 冷却好了 + 自己的血量小于上限，读的是 `Entity.Hp` / `MaxHp` 门面；`SkillCfg` 加 `onlyWhenHurt` 开关，`SkillPipelineFactory.CreateCastCheck(cfg)` 按它选实现；Ranger 的治疗技能解除 `oncePerBattle` 并勾上 `onlyWhenHurt`
-- **技能构造收敛** ✅ Inspector 上原来一个技能散着一堆字段（伤害 / 冷却 / buff / 是否每场一次 / 血量判断），现在**只配技能名**（`skillTypes` 列表）；新增 `SkillDefinition`（技能名 + 整条流水线 + 额度配置，`Run()` 跑三段）承载效果，`Skill` 变成薄壳（只记两条额度）；`SkillPipelineFactory` → `SkillFactory`（`SkillType` 枚举 + 数值常量 + 按技能名造定义），旧的 `SkillCfg` 删掉；技能名扩成 Melee / Ranged / HealBuff / AttackBuff，治疗的血量判断与加攻的"一场一次"都写死在工厂里
-- **Buff 界面（事件接入）** ✅ 新增 `BuffChangedEvent`：`BuffManager` 在挂上 / 有到期 / 清场时广播（清场空队列不发、到期一圈只发一次）；新增 `UI/BuffBar.cs` + `prefab/BuffBar.prefab`（世界空间 Canvas + TMP 文字），由 `BattleUIManager` 在 `EntitySpawnedEvent` 时实例化到实体 UI 点位下，收到消息只认自己那个实体并重读 `entity.Buffs.Active` 拼文字；`BattleUIManager` 多一个 `buffBarPath`（场景里也补了这个字段），清场时和血条一起退订销毁
-- **技能结构重构** ✅ **删掉 `Skill` / `SkillDefinition` / `SkillFactory` 这套基础结构**：一条技能就是 `Combination/` 里的一个组合类（`MeleeSkill` / `RangedSkill` / `HealBuffSkill` / `AttackBuffSkill`）——三段零件列表 + 数值常量，`CanCast` / `TryFindTargets` / `Cast` 分别取 与 / 或 / 与；三段实现拆进 `CastCheck/` / `TargetFinder/` / `SkillCaster/` 三个目录，零件都**自己不存依赖**（阶段二的地图由 `SkillManager` 每次调用传进去）；`SkillManager` 只按 `skillTypes` 造组合技能、跑三段、按技能名记**使用次数缓存**（技能名 → 组合技能的映射收进它自己的 `CreateSkill`）；**所有释放条件都成了 `CastCheck`**（活着 / 冷却 / 血量没满 / 一场一次），额度判据就是这份缓存，`ICooldown` 与 `Entity.TakeTurnRoutine` 里的 `Skills.TickTurn()` 一起去掉
-- **技能改用使用次数缓存** ✅ 中间那版 `ISkillPart` + `SkillCastEvent` 撤了：`ITargetFinder` 改成 `List<Entity> TryFindTargets(caster, map)`（返回目标列表、地图每次给，`TargetFinder` 三个零件全变成无状态），`ISkill` 去掉 `Init`、加 `Type`，`ISkillCaster` 加 `UsedCount`（放成一次 +1，组合技能求和暴露成 `ISkill.UsedCount`）；`SkillManager` 放成后把次数写进 `skillUseCount` 并开放 `UsedCount(SkillType)`；`OnlyCastOnceCastCheck` 内部缓存技能名、通过施法者取次数，`CooldownCastCheck` 同样按名取次数（涨了就是刚放成、进冷却）；`SkillCastEvent` 没人用直接删，`SkillManager.targets` 缓冲也删了
-- **释放判断不再互相继承** ✅ `WoundedCastCheck` 从 `CooldownCastCheck` 的派生类改成独立的 `ICastCheck`（**只管"血量没满"**），要活着 / 冷却就由组合技能在自己的 `castChecks` 列表里与起来（`HealBuffSkill` = `CooldownCastCheck` + `WoundedCastCheck`）；`CooldownCastCheck.CanCast` 随之不再需要 `virtual`
-- **Buff 结构重构** ✅ `Buffs/` 按技能那套布局重排：**删掉 `Buff` / `BuffCfg` / `BuffFactory`**——一条 buff 就是 `Combination/` 里的一个组合类（`HealBuff` / `AddMoveStepsBuff` / `AddAttackBuff`，数值 20×3 / +2×3 / +5×3 与持续回合是各自的常量，目标列表与已结算次数是各自的运行期状态）；`BuffPipeline.cs` 放 `IBuff`（Type / Left / IsOver + Add / Trigger / Remove）与 `IBuffEffect`（Apply / Tick / Revert，**数值走构造函数**，不再传 `BuffCfg`）；效果零件拆进 `BuffEffect/` 一个文件一个（`AttackEffect` 顺手改名 `AddAttackEffect`）；`BuffManager` 自己持有 `BuffType` 枚举与 `CreateBuff` 映射，`Active` 改成 `IEnumerable<IBuff>`；`BuffBar` 改读 `buff.Type`
-- **规范化** ✅ 全部脚本按用户给的顺序重排：**属性 → 生命周期 → 公开方法 → 私有方法**（各组内按调用顺序），属性标签横排一行；私有字段统一去掉下划线前缀，序列化字段补中文 Tooltip；删掉过期的 `BattlePrefabExporter`；分块统一用 `#region` / `#endregion`
-- 未做：Map 配置对象（用户说暂时不用）
+- 各层都是一个套路：**管理器 + 三段零件 + 组合类**（实体 / 地图 / 回合 / 移动管线 / 技能管线 / Buff / UI / 事件总线都已摆好）。
+  每一步怎么改的、为什么这么改，看 `git log` 与提交信息（本项目约定一个改动一个提交）。
+- **未做**：Map 配置对象（用户说暂时不用）。
+- 待定（问过用户、还没定）：技能组合类与 Buff 组合类的装配 / 生命周期循环是各自抄一遍的，要不要抽基类；见「已知缺口」。
 
 ## 版本管理
 
