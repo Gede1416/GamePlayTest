@@ -8,8 +8,6 @@ using System.Collections.Generic;
 /// </summary>
 public class MeleeSkill : ISkill
 {
-    #region 属性
-
     /// <summary>技能名（自己的身份：释放判断拿它去施法者身上取使用次数）</summary>
     const SkillType Name = SkillType.Melee;
 
@@ -36,10 +34,6 @@ public class MeleeSkill : ISkill
 
     /// <summary>技能名</summary>
     public SkillType Type => Name;
-
-    #endregion
-
-    #region 公开方法
 
     /// <summary>阶段一：所有释放判断都过才放</summary>
     public bool CanCast(Entity caster)
@@ -80,6 +74,4 @@ public class MeleeSkill : ISkill
         foreach (var part in skillCasters)
             if (part is DamageCaster damageCaster) damageCaster.AddDamage(delta);
     }
-
-    #endregion
 }
