@@ -23,9 +23,9 @@ public enum SkillType
 /// <summary>
 /// 技能管理器（挂在实体上，一个实体一个）：手里是**一组技能**（每个 ISkill 都是三段拼起来的一条技能）。
 /// **Inspector 上只配技能名**（skillTypes 列表）：名字 → 组合技能由 SkillManager 自己的映射决定，
-/// 这里只做四件事——按名单造出来（Build）、每回合挨个跑三段（RunPipeline）、记**使用次数缓存**、转发伤害加成（AddDamage）。
-/// 额度（冷却 / 一场一次）不在这里：归各技能的释放判断自己管，判据就是这个使用次数缓存
-/// （`skillUseCount`：技能名 → 放成过几次），判断通过施法者（Entity → 这里）取。
+/// 这里只做三件事——按名单造出来（Build）、每回合挨个跑三段（RunPipeline）、放成后发一条 `SkillCastEvent`。
+/// 额度（冷却 / 一场一次）不在这里：归各技能的释放判断自己管——判断拿不到"放成没放成"，
+/// 所以由这里发消息（带上施法者 uuid 与技能名），判断收到后比对自己的 id 与技能名再记账。
 /// 成员顺序：属性 → 生命周期 → 公开方法 → 私有方法（各组内按调用顺序）。
 /// </summary>
 [RequireComponent(typeof(Entity))]
@@ -38,9 +38,6 @@ public class SkillManager : MonoBehaviour
 
     [Tooltip("地图管理器；留空则取场景里的第一个")]
     public MapManager map;
-
-    /// <summary>使用次数缓存：技能名 → 这条技能这场放成过几次（放成后由 RunPipeline 记一笔，释放判断拿它认额度）</summary>
-    public Dictionary<SkillType, int> skillUseCount = new();
 
     readonly List<ISkill> skills = new();     // 按 skillTypes 造出来的组合技能
 
@@ -60,11 +57,10 @@ public class SkillManager : MonoBehaviour
         Build();
     }
 
-    /// <summary>按技能名单重建技能列表（判断 / 冷却都是新实例，等于额度归零；使用次数缓存一起清）</summary>
+    /// <summary>按技能名单重建技能列表（判断 / 冷却都是新实例，等于额度归零）</summary>
     public void Build()
     {
         skills.Clear();
-        skillUseCount.Clear();
 
         foreach (var type in skillTypes)
         {
@@ -77,8 +73,8 @@ public class SkillManager : MonoBehaviour
 
     /// <summary>
     /// 挨个跑技能：**判断 → 目标 → 释放**，三段都过才算放成（顺序固定）。
-    /// 放成后把这条技能的使用次数记进缓存（<see cref="skillUseCount"/>）——冷却与场次额度都是各检查查这个数自己算的，
-    /// 所以管理器不用管额度，只负责记账。
+    /// 放成后发一条 <see cref="SkillCastEvent"/>（施法者 uuid + 技能名）——冷却与场次额度都是各检查收到这条消息自己记的，
+    /// 所以管理器不用管额度，只负责发消息。
     /// </summary>
     public bool RunPipeline()
     {
@@ -91,17 +87,11 @@ public class SkillManager : MonoBehaviour
             if (found == null || found.Count == 0) continue;
             if (!skill.Cast(self, found)) continue;                 // 阶段三
 
-            skillUseCount[skill.Type] = skill.UsedCount;            // 使用次数缓存：这条技能放过几次
+            EventPipeline.Send(new SkillCastEvent(self.Uuid, skill.Type));   // 放成了：通知各释放判断
             casted = true;
         }
 
         return casted;
-    }
-
-    /// <summary>某个技能名这场放成过几次（没记过就是 0）——技能管线的释放判断通过施法者问这里</summary>
-    public int UsedCount(SkillType type)
-    {
-        return skillUseCount.TryGetValue(type, out int used) ? used : 0;
     }
 
     /// <summary>加 / 减攻击力（buff 用）：只有伤害类技能吃这个加成（转发给阶段三的 DamageCaster）</summary>
@@ -110,11 +100,10 @@ public class SkillManager : MonoBehaviour
         foreach (var skill in skills) skill.AddDamage(delta);
     }
 
-    /// <summary>清理：清空技能与使用次数缓存（下场按名单重建）（由 Entity.Clear 调）</summary>
+    /// <summary>清理：清空技能（判断 / 冷却跟着实例一起扔，下场按名单重建）（由 Entity.Clear 调）</summary>
     public void Clear()
     {
         skills.Clear();
-        skillUseCount.Clear();
         self = null;
     }
 
@@ -150,7 +139,7 @@ public class SkillManager : MonoBehaviour
     void PrintSkills()
     {
         foreach (var skill in skills)
-            Debug.Log($"[{name}] {skill.Type}：这场放过 {UsedCount(skill.Type)} 次，现在能放 {skill.CanCast(self)}", this);
+            Debug.Log($"[{name}] {skill.Type}：现在能放 {skill.CanCast(self)}", this);
     }
 
     #endregion

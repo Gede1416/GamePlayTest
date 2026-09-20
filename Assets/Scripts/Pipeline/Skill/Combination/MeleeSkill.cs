@@ -37,17 +37,6 @@ public class MeleeSkill : ISkill
     /// <summary>技能名</summary>
     public SkillType Type => Name;
 
-    /// <summary>这条技能放成过几次（各释放零件的使用次数之和，SkillManager 拿它刷使用次数缓存）</summary>
-    public int UsedCount
-    {
-        get
-        {
-            int total = 0;
-            foreach (var caster in skillCasters) total += caster.UsedCount;
-            return total;
-        }
-    }
-
     #endregion
 
     #region 公开方法

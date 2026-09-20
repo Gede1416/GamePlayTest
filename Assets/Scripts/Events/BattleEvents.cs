@@ -165,3 +165,31 @@ public class BattleEndedEvent
 
     #endregion
 }
+
+/// <summary>
+/// 技能放成了：谁放的（施法者的 uuid）、哪条技能（技能名）。
+/// 各释放判断收到后拿自己的施法者 id 与技能名跟它比对，对上了才记自己的账（进冷却 / 记一场一次），
+/// 所以"放成没放成"这条判断拿不到的数据是靠消息送过去的。
+/// </summary>
+public class SkillCastEvent
+{
+    #region 属性
+
+    /// <summary>施法者的 uuid（跟 Entity.Uuid 对）</summary>
+    public readonly int uuid;
+
+    /// <summary>放成的那条技能（技能名）</summary>
+    public readonly SkillType skillType;
+
+    #endregion
+
+    #region 构造
+
+    public SkillCastEvent(int uuid, SkillType skillType)
+    {
+        this.uuid = uuid;
+        this.skillType = skillType;
+    }
+
+    #endregion
+}

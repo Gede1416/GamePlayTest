@@ -9,9 +9,6 @@ public class DamageCaster : ISkillCaster
     /// <summary>每个目标扣多少血（buff 加攻就是改它）</summary>
     public float damage;
 
-    /// <summary>使用次数缓存：这个零件放成过几次（放成一次 +1）</summary>
-    public int UsedCount { get; private set; }
-
     public DamageCaster(float damage = 10f)
     {
         this.damage = damage;
@@ -20,7 +17,7 @@ public class DamageCaster : ISkillCaster
     /// <summary>加 / 减伤害（buff 用；delta 为负就是减回去）</summary>
     public void AddDamage(float delta) => damage += delta;
 
-    /// <summary>对每个目标扣 damage 血；没有目标就返回 false（也就没记这次使用）</summary>
+    /// <summary>对每个目标扣 damage 血；没有目标就返回 false</summary>
     public bool Cast(Entity caster, List<Entity> targets)
     {
         if (caster == null || targets == null || targets.Count == 0) return false;
@@ -29,7 +26,6 @@ public class DamageCaster : ISkillCaster
         foreach (var t in targets)
             if (t != null) t.TakeDamage(damage);
 
-        UsedCount++;
         Debug.Log($"[DamageCaster] {caster.name} 命中 {targets.Count} 个目标，每个 {damage} 伤害");
         return true;
     }

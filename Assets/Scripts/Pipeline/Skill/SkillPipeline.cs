@@ -6,8 +6,8 @@ using UnityEngine;
 // 三段都**不依赖任何技能对象**、也不存外部依赖：范围 / 目标数 / 伤害 / 挂哪种 buff 由各自的实现自己带（构造函数注入），
 // 地图由 SkillManager 每次调阶段二时传进来。
 // 一条技能 = 三段各拿几个实现拼起来（见 Combination/）。
-// 额度（冷却 / 场次）是阶段一里的检查自己管，判据是**使用次数缓存**：
-// 次数记在阶段三的零件里（放成一次 +1），SkillManager 按技能名缓存到 skillUseCount，检查通过施法者（Entity → SkillManager）取。
+// 额度（冷却 / 场次）是阶段一里的检查自己管：判断拿不到"放成没放成"，靠 SkillManager 放成后发的
+// SkillCastEvent（施法者 uuid + 技能名）——检查内部缓存自己的施法者 id 与技能名，收到消息比对上了才记自己的账。
 
 /// <summary>
 /// 一条技能：**三段拼起来的组合**。
@@ -37,9 +37,6 @@ public interface ITargetFinder
 /// <summary>阶段三：技能释放——对目标附加效果（扣血 / 挂 buff）</summary>
 public interface ISkillCaster
 {
-    /// <summary>使用次数缓存：这个释放零件放成过几次（放成一次 +1，自己数）——释放判断要的额度就从它来</summary>
-    int UsedCount { get; }
-
     bool Cast(Entity caster, List<Entity> targets);
 }
 

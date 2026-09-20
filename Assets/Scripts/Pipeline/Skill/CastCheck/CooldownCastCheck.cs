@@ -3,43 +3,43 @@
 
 /// <summary>
 /// 默认的释放判断：施法者活着 + 冷却好了。
-/// **"放成没放成"由自己问出来**：阶段三的零件把使用次数缓存在自己身上，这里拿技能名去施法者身上取
-/// （`caster.Skills.UsedCount(skillType)`），比上次看到的多就是刚放成，进冷却；
-/// 进新回合（`TurnChangedEvent`）冷却减一，所以**冷却 ≥ 1 顺带就是"每回合最多放一次"**。
-/// 订阅在构造函数里做（不用外面的 Init），退订靠 `BattleManager.ClearBattle()` 末尾的 `EventPipeline.Clear()`。
+/// **"放成没放成"靠消息**：订 <see cref="SkillCastEvent"/>，收到后拿自己的施法者 id 与技能名跟消息里的对，
+/// 都对上才进冷却；进新回合（<see cref="TurnChangedEvent"/>）冷却减一——
+/// 所以**冷却 ≥ 1 顺带就是"每回合最多放一次"**。
+/// 施法者 id 在第一次 <see cref="CanCast"/> 时记下（一条技能只属于一个实体）。
+/// 订阅在构造函数里做（不用外面的 Init），退订靠 `BattleManager.ClearBattle()` 末尾的 `EventPipeline.Clear()` 兜。
 /// </summary>
 public class CooldownCastCheck : ICastCheck
 {
-    readonly SkillType skillType;    // 认自己那条技能：取使用次数时的 key
+    readonly SkillType skillType;    // 认自己那条技能：跟消息里的技能名对
     readonly int cooldown;
 
+    int casterId;                    // 认自己的施法者：跟消息里的 uuid 对（CanCast 时记下）
     int cooldownLeft;
-    int seenUsed;                    // 上次看到的使用次数
 
     public CooldownCastCheck(SkillType skillType, int cooldown = 0)
     {
         this.skillType = skillType;
         this.cooldown = cooldown;
 
+        EventPipeline.Subscribe<SkillCastEvent>(OnSkillCast);
         EventPipeline.Subscribe<TurnChangedEvent>(OnTurnChanged);
     }
 
-    /// <summary>能不能放：施法者活着 且 冷却已经好了（顺手把"刚放成过"这笔账记上）</summary>
+    /// <summary>能不能放：施法者活着 且 冷却已经好了（顺手记下自己属于哪个施法者）</summary>
     public bool CanCast(Entity caster)
     {
         if (caster == null || caster.Health == null || caster.Health.IsDead) return false;
 
-        NoteUsed(caster);
+        casterId = caster.Uuid;
         return cooldownLeft <= 0;
     }
 
-    /// <summary>使用次数比上次多 = 刚放成，进冷却（次数缓存在阶段三的零件里，判断只能这么问）</summary>
-    void NoteUsed(Entity caster)
+    /// <summary>自己那条技能放成了（uuid 与技能名都对上）：进冷却</summary>
+    void OnSkillCast(SkillCastEvent e)
     {
-        int used = caster.Skills != null ? caster.Skills.UsedCount(skillType) : 0;
-        if (used <= seenUsed) return;
+        if (e.uuid != casterId || e.skillType != skillType) return;
 
-        seenUsed = used;
         cooldownLeft = cooldown;
     }
 

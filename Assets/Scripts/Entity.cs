@@ -147,7 +147,7 @@ public class Entity : MonoBehaviour
     /// <summary>
     /// 轮到它行动的简单回合操作：**放技能 -> 移动 -> 再放技能**。
     /// 每个技能的额度（冷却 / 一场一次）由它自己的释放判断记账，这里不用管：
-    /// 判断拿技能名去施法者身上取**使用次数缓存**（`Skills.skillUseCount`）算额度，冷却每大回合收 `TurnChangedEvent` 自己减，
+    /// 判断靠 SkillManager 放成后发的 **SkillCastEvent**（施法者 uuid + 技能名）认自己那条技能，冷却每大回合收 `TurnChangedEvent` 自己减，
     /// 所以第二次只会补放"开局够不着、走完才够得着"的那次（放成过的会被判断挡住）；
     /// 移动是协程动画，所以这里是协程：等它走完再补第二次（TurnManager 直接 yield 它）。
     /// </summary>
