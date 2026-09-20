@@ -3,10 +3,10 @@ using UnityEngine;
 
 /// <summary>
 /// Buff 管理器（挂在实体上，一个实体一个）：**只管自己身上这一队 buff**——按队列存正在生效的 buff，
-/// 每次结算轮转一圈（出队 → <c>Trigger()</c> → 过期的 <c>Remove()</c> 且**不再入队**，没过期的转回队尾）。
-/// **不认名字、也不造 buff**：挂哪种 buff 由技能那边配（阶段三的 BuffCaster 写死是哪份组合 buff），
+/// 每次结算轮转一圈（出队 → <c>Tick()</c> → 过期的 <c>Revert()</c> 且**不再入队**，没过期的转回队尾）。
+/// **不认名字、也不造 buff**：挂哪种 buff 由技能那边配（阶段三的 BuffCaster 决定挂哪个零件），
 /// 挂给谁由技能阶段二挑好、逐个挂过来；这里只负责收下、排队、到期撤掉，并在有变化时广播给界面。
-/// 队列里存的是**组合 buff**（`IBuff`）而不是效果零件：只有它带"还剩几次结算 / 该结束了"这套生命周期。
+/// 队列里存的就是**效果零件本身**（`IBuff`）：数值与持续回合都由零件自己带，这里只调它的三步生命周期。
 /// 结算时机：<c>Entity.TakeTurnRoutine()</c> 开头调 <c>TickTurn()</c>，所以"1 回合"= 自己行动一次
 /// （技能冷却不在这里推：那是各技能的释放判断收 <c>TurnChangedEvent</c> 自己减的，按大回合走）。
 /// 由 Entity.Init / Clear 调（组件自己不写 Awake / Start）。
@@ -43,18 +43,18 @@ public class BuffManager : MonoBehaviour
     {
         if (buffQueue.Count == 0) return;
 
-        foreach (var buff in buffQueue) buff.Remove();
+        foreach (var buff in buffQueue) buff.Revert();
         buffQueue.Clear();
         SendChanged();
     }
 
-    /// <summary>收下一条已经造好的 buff（挂给谁 = 自己）：立刻生效并入队；空的不收</summary>
+    /// <summary>收下一条已经造好的 buff 零件（挂给谁 = 自己）：立刻生效并入队；空的不收</summary>
     public void Add(IBuff buff)
     {
         if (buff == null) return;
 
         buff.Init(owner);
-        buff.Add();             // 常驻加成当场生效（治疗这类要等结算）
+        buff.Apply();           // 常驻加成当场生效（治疗这类要等结算）
         buffQueue.Enqueue(buff);
         SendChanged();
     }
@@ -67,11 +67,11 @@ public class BuffManager : MonoBehaviour
         for (int i = 0; i < count; i++)
         {
             var buff = buffQueue.Dequeue();
-            buff.Trigger();
+            buff.Tick();
 
             if (buff.IsOver)
             {
-                buff.Remove();                          // 结束的：撤掉加成，不入队
+                buff.Revert();                          // 结束的：撤掉加成，不入队
                 expired = true;
             }
             else buffQueue.Enqueue(buff);               // 没结束的：转回队尾
@@ -93,7 +93,7 @@ public class BuffManager : MonoBehaviour
         Debug.Log($"[{name}] 正在生效 {buffQueue.Count} 条", this);
         foreach (var buff in buffQueue)
         {
-            Debug.Log($"  {buff.Type}：{(buff.Left < 0 ? "永久" : $"还剩 {buff.Left} 次结算")}，{(buff.IsOver ? "该结束了" : "还在")}", this);
+            Debug.Log($"  {buff.GetType().Name}：{(buff.Left < 0 ? "永久" : $"还剩 {buff.Left} 次结算")}，{(buff.IsOver ? "该结束了" : "还在")}", this);
         }
     }
 

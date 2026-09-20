@@ -3,7 +3,7 @@ using UnityEngine;
 
 /// <summary>
 /// 加攻技能的释放：给每个目标挂一条加伤害的 buff——**挂的是什么 buff 全在这儿**
-/// （效果零件 + 名字 + 持续回合；原来 Buffs/Combination/AddAttackBuff 那份职责搬到这里）。
+/// （挂哪个零件 + 数值 + 持续回合；原来 Buffs/Combination/AddAttackBuff 那份职责搬到这里）。
 /// 每次挂都**新建一条**：buff 带自己的结算次数，几个目标不能共用一条。
 /// </summary>
 public class AddAttackBuffCaster : ISkillCaster
@@ -20,9 +20,9 @@ public class AddAttackBuffCaster : ISkillCaster
         if (caster == null || targets == null || targets.Count == 0) return false;
 
         foreach (var t in targets)
-            if (t != null) t.AddBuff(new Buff(BuffType.AddAttack, Duration, new AddAttackEffect(AttackBonus)));
+            if (t != null) t.AddBuff(new AddAttackEffect(AttackBonus, Duration));
 
-        Debug.Log($"[AddAttackBuffCaster] {caster.name} 放下 {BuffType.AddAttack}");
+        Debug.Log($"[AddAttackBuffCaster] {caster.name} 放下加攻击力 buff（{Duration} 回合）");
         return true;
     }
 }

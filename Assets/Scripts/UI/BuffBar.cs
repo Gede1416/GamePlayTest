@@ -7,7 +7,7 @@ using UnityEngine;
 /// 刷新**走事件**——BuffManager 挂上 / 到期移除 / 清场时发 BuffChangedEvent，这里收到、只认自己跟的那个实体，
 /// 再读一遍 <c>entity.Buffs.Active</c> 拼文字；不轮询、也不去改 buff 数据。
 /// 和血条一样：由 BattleUIManager 在 EntitySpawnedEvent 时实例化到实体的 UI 点位下，LateUpdate 贴点位转向相机。
-/// 文字只能是英文 / 数字（默认字体资源没有中文字形），所以显示的是 BuffType 的名字与剩余结算次数，形如 Heal(3) Move(2)。
+/// 文字只能是英文 / 数字（默认字体资源没有中文字形），所以显示的是零件类名与剩余结算次数，形如 HealEffect(3) MoveStepsEffect(2)。
 /// 成员顺序：属性 → 生命周期 → 公开方法 → 私有方法（各组内按调用顺序）。
 /// </summary>
 public class BuffBar : MonoBehaviour
@@ -63,7 +63,7 @@ public class BuffBar : MonoBehaviour
         Refresh();
     }
 
-    /// <summary>按当前生效的 buff 重拼文字（类型 + 剩余结算次数；永久 buff 不显示次数，没 buff 就清空）</summary>
+    /// <summary>按当前生效的 buff 重拼文字（零件类名 + 剩余结算次数；永久 buff 不显示次数，没 buff 就清空）</summary>
     void Refresh()
     {
         if (label == null) return;
@@ -76,7 +76,7 @@ public class BuffBar : MonoBehaviour
             foreach (var buff in buffs.Active)
             {
                 if (builder.Length > 0) builder.Append(' ');
-                builder.Append(buff.Type);
+                builder.Append(buff.GetType().Name);
                 if (buff.Left > 0) builder.Append('(').Append(buff.Left).Append(')');
             }
         }
