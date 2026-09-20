@@ -58,11 +58,13 @@ MonoBehaviour:
     cooldown: 1
     buff: 0
     oncePerBattle: 0
+    onlyWhenHurt: 0
   - type: 2
     damage: 0
     cooldown: 0
     buff: 0
-    oncePerBattle: 1
+    oncePerBattle: 0
+    onlyWhenHurt: 1
   map: {fileID: 0}
 --- !u!114 &8923348008628346844
 MonoBehaviour:

@@ -56,10 +56,28 @@ public class CooldownCastCheck : ICastCheck, ICooldown
     }
 
     /// <summary>能不能放：施法者活着 且 冷却已经好了</summary>
-    public bool CanCast(Entity caster)
+    public virtual bool CanCast(Entity caster)
     {
         if (caster == null || caster.Health == null || caster.Health.IsDead) return false;
         return CooldownLeft <= 0;
+    }
+}
+
+/// <summary>
+/// 加一条血量判断的释放判断：在"活着 + 冷却好了"之上，再要求**自己的血量没满**（满血时治疗没意义，不放）。
+/// 给治疗这类技能用；血量读的是 Entity 门面（Hp / MaxHp），不直接碰 Health 的数据。
+/// </summary>
+public class WoundedCastCheck : CooldownCastCheck
+{
+    public WoundedCastCheck(int cooldown = 0) : base(cooldown)
+    {
+    }
+
+    /// <summary>能不能放：活着 + 冷却好了 + 血量小于上限</summary>
+    public override bool CanCast(Entity caster)
+    {
+        if (!base.CanCast(caster)) return false;
+        return caster.Hp < caster.MaxHp;
     }
 }
 

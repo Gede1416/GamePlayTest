@@ -22,10 +22,12 @@ public enum SkillType
 /// </summary>
 public static class SkillPipelineFactory
 {
-    /// <summary>阶段一：技能释放判断（活着 + 冷却好了）</summary>
-    public static ICastCheck CreateCastCheck(int cooldown = 0)
+    /// <summary>阶段一：技能释放判断（活着 + 冷却好了；勾了 onlyWhenHurt 的再加一条"血量没满"）</summary>
+    public static ICastCheck CreateCastCheck(SkillCfg cfg)
     {
-        return new CooldownCastCheck(cooldown);
+        if (cfg == null) return new CooldownCastCheck();
+
+        return cfg.onlyWhenHurt ? new WoundedCastCheck(cfg.cooldown) : new CooldownCastCheck(cfg.cooldown);
     }
 
     /// <summary>阶段二：目标获取（近战 / 远程 / 给自己上 buff 的区别就在这一步）</summary>
@@ -53,7 +55,7 @@ public static class SkillPipelineFactory
     {
         if (skill == null || cfg == null) return;
 
-        skill.CastCheck = CreateCastCheck(cfg.cooldown);
+        skill.CastCheck = CreateCastCheck(cfg);
         skill.TargetFinder = CreateTargetFinder(cfg.type, map);
         skill.Caster = CreateCaster(cfg);
     }

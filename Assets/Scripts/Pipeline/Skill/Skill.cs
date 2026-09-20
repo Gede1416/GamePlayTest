@@ -22,6 +22,9 @@ public class SkillCfg
 
     [Tooltip("一场战斗只能放一次（buff 技能勾上）")]
     public bool oncePerBattle;
+
+    [Tooltip("血量没满才放（治疗这类勾上；满血时治疗没意义，空放也不占额度）")]
+    public bool onlyWhenHurt;
 }
 
 /// <summary>
