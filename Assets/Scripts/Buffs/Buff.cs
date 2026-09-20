@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using UnityEngine;
 
 /// <summary>
 /// 一条 buff 的配置：类型 + 数值 + 持续回合（&lt;= 0 = 永久）。
@@ -39,6 +40,9 @@ public class Buff
 
     /// <summary>是否该结束了（永久 buff 永远不结束）</summary>
     public bool IsOver => cfg.duration > 0 && elapsed >= cfg.duration;
+
+    /// <summary>还剩几次结算（永久 buff 返回 -1）；给 UI 显示用</summary>
+    public int Left => cfg.duration > 0 ? Mathf.Max(0, cfg.duration - elapsed) : -1;
 
     #endregion
 

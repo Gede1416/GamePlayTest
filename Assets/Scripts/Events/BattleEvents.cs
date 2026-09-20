@@ -123,6 +123,26 @@ public class EntitySpawnedEvent
     #endregion
 }
 
+/// <summary>某个实体的 buff 有变化：挂上 / 到期移除 / 清场（buff 条收到后重新读一遍它的 buff 列表）</summary>
+public class BuffChangedEvent
+{
+    #region 属性
+
+    /// <summary>buff 变动的实体</summary>
+    public readonly Entity entity;
+
+    #endregion
+
+    #region 构造
+
+    public BuffChangedEvent(Entity entity)
+    {
+        this.entity = entity;
+    }
+
+    #endregion
+}
+
 /// <summary>战斗结束：胜方阵营（-1 = 打平 / 全灭）</summary>
 public class BattleEndedEvent
 {

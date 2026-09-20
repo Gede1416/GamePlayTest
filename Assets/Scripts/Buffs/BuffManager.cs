@@ -22,6 +22,9 @@ public class BuffManager : MonoBehaviour
     /// <summary>正在生效的 buff 条数</summary>
     public int Count => buffQueue.Count;
 
+    /// <summary>正在生效的 buff（只读给外面看，例如 buff 条刷新时遍历）</summary>
+    public IEnumerable<Buff> Active => buffQueue;
+
     #endregion
 
     #region 公开方法
@@ -36,8 +39,11 @@ public class BuffManager : MonoBehaviour
     /// <summary>清理：先把每条 buff 移除（加成撤回去，别留在实体上）再清空队列（由 Entity.Clear 调）</summary>
     public void Clear()
     {
+        if (buffQueue.Count == 0) return;
+
         foreach (var buff in buffQueue) buff.Remove();
         buffQueue.Clear();
+        SendChanged();
     }
 
     /// <summary>挂一条 buff：按类型造配置与效果，立刻生效并入队；targets 留空就是挂给自己</summary>
@@ -48,25 +54,36 @@ public class BuffManager : MonoBehaviour
 
         buff.Add();         // 常驻加成当场生效（治疗这类要等结算）
         buffQueue.Enqueue(buff);
+        SendChanged();
     }
 
     /// <summary>结算一次（自己的回合开始调）：队列轮转一圈，结束的那条移除后不再入队</summary>
     public void TickTurn()
     {
+        bool expired = false;
         int count = buffQueue.Count;                    // 先记下来：这一圈只处理现在已有的
         for (int i = 0; i < count; i++)
         {
             var buff = buffQueue.Dequeue();
             buff.Trigger();
 
-            if (buff.IsOver) buff.Remove();             // 结束的：撤掉加成，不入队
+            if (buff.IsOver)
+            {
+                buff.Remove();                          // 结束的：撤掉加成，不入队
+                expired = true;
+            }
             else buffQueue.Enqueue(buff);               // 没结束的：转回队尾
         }
+
+        if (expired) SendChanged();                     // 有到期的才广播一次（界面刷新）
     }
 
     #endregion
 
     #region 私有方法
+
+    /// <summary>广播"buff 变了"（挂上 / 到期移除 / 清场都走这里，界面只认这条消息）</summary>
+    void SendChanged() => EventPipeline.Send(new BuffChangedEvent(owner));
 
     [ContextMenu("测试：挂一个治疗 buff")]
     void TestHeal() => Add(BuffType.Heal);
