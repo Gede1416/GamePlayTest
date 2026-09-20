@@ -52,6 +52,9 @@ public class Entity : MonoBehaviour
     /// <summary>攻击管线组件，可能没有（没有就只移动不攻击）</summary>
     public Attacker Attacker { get; private set; }
 
+    /// <summary>Buff 管理器，可能没有（没有就挂不上 buff）</summary>
+    public BuffManager Buffs { get; private set; }
+
     DeathEffect deathEffect;      // 阵亡表现组件，可能没有（没有就直接停用自己）
 
     /// <summary>移动管线类型：数据归 AutoPilot，这里只是转发（改它会重建移动管线阶段一）</summary>
@@ -66,7 +69,7 @@ public class Entity : MonoBehaviour
     #region 公开方法
 
     /// <summary>
-    /// 初始化：由上级（BattleManager）调用，自己再把初始化发给身上的组件（Health → DeathEffect → AutoPilot → Attacker）。
+    /// 初始化：由上级（BattleManager）调用，自己再把初始化发给身上的组件（Health → DeathEffect → Buffs → AutoPilot → Attacker）。
     /// 不传 data：用预制体里配好的（Inspector 字段）装配；
     /// 传了 data：先用 data 覆盖，再装配（管线按新类型重建、步数补满）。
     /// </summary>
@@ -94,6 +97,8 @@ public class Entity : MonoBehaviour
 
         if (deathEffect != null) deathEffect.Init();
 
+        if (Buffs != null) Buffs.Init();
+
         if (Pilot != null)
         {
             Pilot.map = map;
@@ -114,12 +119,38 @@ public class Entity : MonoBehaviour
         if (Health != null) Health.TakeDamage(amount);
     }
 
+    /// <summary>治疗：转发给生命值（buff 的"治疗"效果走这里，扣血 / 回血都从 Entity 进）</summary>
+    public void Heal(float amount)
+    {
+        if (Health != null) Health.Heal(amount);
+    }
+
+    /// <summary>加 / 减每回合可走步数（buff 用；步数是 Entity 的数据，顺手把本回合预算同步给移动管线）</summary>
+    public void AddMoveSteps(int delta)
+    {
+        moveSteps = Mathf.Max(0, moveSteps + delta);
+        if (Pilot != null) Pilot.ApplySteps(moveSteps);
+    }
+
+    /// <summary>加 / 减攻击力（buff 用，转发给 Attacker：伤害归它持有）</summary>
+    public void AddDamage(float delta)
+    {
+        if (Attacker != null) Attacker.AddDamage(delta);
+    }
+
+    /// <summary>挂一条 buff（转发给 BuffManager；身上没这个组件就什么都不做）</summary>
+    public void AddBuff(BuffType type)
+    {
+        if (Buffs != null) Buffs.Add(type);
+    }
+
     /// <summary>
     /// 轮到它行动的简单回合操作：**攻击 -> 移动 -> 攻击**。
     /// 移动是协程动画，所以这里是协程：等它走完再补第二次攻击（TurnManager 直接 yield 它）。
     /// </summary>
     public IEnumerator TakeTurnRoutine()
     {
+        Buffs?.TickTurn();                                       // 先结算 buff（治疗 / 到期加成），再按最新数值行动
         Pilot?.ApplySteps(moveSteps);                            // 步数补满
         Attacker?.TickTurn();                                    // 技能冷却推进
 
@@ -129,11 +160,12 @@ public class Entity : MonoBehaviour
         Attacker?.RunPipeline();                                 // 攻击 2
     }
 
-    /// <summary>清理：把清理发给身上的组件（Attacker → AutoPilot → DeathEffect → Health，与初始化相反的顺序），由 BattleManager 统一调</summary>
+    /// <summary>清理：把清理发给身上的组件（Attacker → AutoPilot → Buffs → DeathEffect → Health，与初始化相反的顺序），由 BattleManager 统一调</summary>
     public void Clear()
     {
         if (Attacker != null) Attacker.Clear();
         if (Pilot != null) Pilot.Clear();
+        if (Buffs != null) Buffs.Clear();
         if (deathEffect != null) deathEffect.Clear();
         if (Health != null) Health.Clear();
     }
@@ -156,6 +188,7 @@ public class Entity : MonoBehaviour
         if (Pilot == null) Pilot = GetComponent<AutoPilot>();
         if (Health == null) Health = GetComponent<Health>();
         if (Attacker == null) Attacker = GetComponent<Attacker>();
+        if (Buffs == null) Buffs = GetComponent<BuffManager>();
         if (deathEffect == null) deathEffect = GetComponent<DeathEffect>();
     }
 

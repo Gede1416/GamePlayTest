@@ -84,6 +84,13 @@ public class Attacker : MonoBehaviour
         (CastCheck as ICooldown)?.TickTurn();
     }
 
+    /// <summary>加 / 减攻击力（buff 用；delta 为负就是把加上的减回去）；改完按新伤害重装阶段三</summary>
+    public void AddDamage(float delta)
+    {
+        damage += delta;
+        Build();
+    }
+
     /// <summary>清理：清空上次选出的目标并放开三段引用（由 Entity.Clear 调）</summary>
     public void Clear()
     {

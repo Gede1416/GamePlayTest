@@ -60,6 +60,16 @@ public class Health : MonoBehaviour
         if (IsDead) Die();
     }
 
+    /// <summary>治疗：回血但不超过上限，已阵亡的不再被治疗（buff 挂在尸体上也回不来）</summary>
+    public void Heal(float amount)
+    {
+        if (amount <= 0f) return;
+        if (IsDead) return;
+
+        Current = Mathf.Min(maxHealth, Current + amount);
+        SendChanged();                                          // 血条
+    }
+
     /// <summary>死亡：单独处理死亡逻辑——交给死亡表现（没配就直接停用自己）+ 发死亡消息（同一条命只走一次）</summary>
     public void Die()
     {
