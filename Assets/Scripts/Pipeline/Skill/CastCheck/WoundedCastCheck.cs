@@ -7,7 +7,7 @@ public class WoundedCastCheck : CooldownCastCheck
 {
     #region 构造
 
-    public WoundedCastCheck(int cooldown = 0) : base(cooldown)
+    public WoundedCastCheck(SkillType skillType, int cooldown = 0) : base(skillType, cooldown)
     {
     }
 

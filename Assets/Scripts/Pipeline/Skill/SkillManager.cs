@@ -23,9 +23,9 @@ public enum SkillType
 /// <summary>
 /// 技能管理器（挂在实体上，一个实体一个）：手里是**一组技能**（每个 ISkill 都是三段拼起来的一条技能）。
 /// **Inspector 上只配技能名**（skillTypes 列表）：名字 → 组合技能由 SkillManager 自己的映射决定，
-/// 这里只做三件事——按名单造出来并装配（Build / Init）、每回合挨个跑三段（RunPipeline）、转发伤害加成（AddDamage）。
-/// 额度（冷却 / 每回合一次 / 一场一次）不在这里：归各技能的释放判断自己管，数据靠消息送
-/// （放成后这里发 SkillCastEvent、回合开头 TurnManager 发 TurnChangedEvent）。
+/// 这里只做四件事——按名单造出来（Build）、每回合挨个跑三段（RunPipeline）、记**使用次数缓存**、转发伤害加成（AddDamage）。
+/// 额度（冷却 / 一场一次）不在这里：归各技能的释放判断自己管，判据就是这个使用次数缓存
+/// （`skillUseCount`：技能名 → 放成过几次），判断通过施法者（Entity → 这里）取。
 /// 成员顺序：属性 → 生命周期 → 公开方法 → 私有方法（各组内按调用顺序）。
 /// </summary>
 [RequireComponent(typeof(Entity))]
@@ -39,8 +39,8 @@ public class SkillManager : MonoBehaviour
     [Tooltip("地图管理器；留空则取场景里的第一个")]
     public MapManager map;
 
-    /// <summary>最近一次目标获取选出来的目标（各技能共用这块缓冲区）</summary>
-    public readonly List<Entity> targets = new();
+    /// <summary>使用次数缓存：技能名 → 这条技能这场放成过几次（放成后由 RunPipeline 记一笔，释放判断拿它认额度）</summary>
+    public Dictionary<SkillType, int> skillUseCount = new();
 
     readonly List<ISkill> skills = new();     // 按 skillTypes 造出来的组合技能
 
@@ -60,25 +60,25 @@ public class SkillManager : MonoBehaviour
         Build();
     }
 
-    /// <summary>按技能名单重建技能列表（判断 / 冷却都是新实例，等于额度归零）</summary>
+    /// <summary>按技能名单重建技能列表（判断 / 冷却都是新实例，等于额度归零；使用次数缓存一起清）</summary>
     public void Build()
     {
         skills.Clear();
+        skillUseCount.Clear();
 
         foreach (var type in skillTypes)
         {
             var skill = CreateSkill(type);
             if (skill == null) continue;
 
-            skill.Init(map);            // 地图发给各零件
             skills.Add(skill);
         }
     }
 
     /// <summary>
     /// 挨个跑技能：**判断 → 目标 → 释放**，三段都过才算放成（顺序固定）。
-    /// 放成后发一条 SkillCastEvent（谁放的、哪条技能）——冷却与场次额度都是各检查收到这条消息自己记的，
-    /// 所以放成没放成只需要看返回值，管理器不用管额度。
+    /// 放成后把这条技能的使用次数记进缓存（<see cref="skillUseCount"/>）——冷却与场次额度都是各检查查这个数自己算的，
+    /// 所以管理器不用管额度，只负责记账。
     /// </summary>
     public bool RunPipeline()
     {
@@ -86,15 +86,22 @@ public class SkillManager : MonoBehaviour
 
         foreach (var skill in skills)
         {
-            if (!skill.CanCast(self)) continue;                 // 阶段一
-            if (!skill.TryFindTargets(self, targets)) continue;  // 阶段二
-            if (!skill.Cast(self, targets)) continue;            // 阶段三
+            if (!skill.CanCast(self)) continue;                     // 阶段一
+            var found = skill.TryFindTargets(self, map);            // 阶段二（地图从这里给）
+            if (found == null || found.Count == 0) continue;
+            if (!skill.Cast(self, found)) continue;                 // 阶段三
 
-            EventPipeline.Send(new SkillCastEvent(self, skill));
+            skillUseCount[skill.Type] = skill.UsedCount;            // 使用次数缓存：这条技能放过几次
             casted = true;
         }
 
         return casted;
+    }
+
+    /// <summary>某个技能名这场放成过几次（没记过就是 0）——技能管线的释放判断通过施法者问这里</summary>
+    public int UsedCount(SkillType type)
+    {
+        return skillUseCount.TryGetValue(type, out int used) ? used : 0;
     }
 
     /// <summary>加 / 减攻击力（buff 用）：只有伤害类技能吃这个加成（转发给阶段三的 DamageCaster）</summary>
@@ -103,11 +110,11 @@ public class SkillManager : MonoBehaviour
         foreach (var skill in skills) skill.AddDamage(delta);
     }
 
-    /// <summary>清理：清空技能与目标（额度 / 冷却跟着实例一起扔，下场按名单重建）（由 Entity.Clear 调）</summary>
+    /// <summary>清理：清空技能与使用次数缓存（下场按名单重建）（由 Entity.Clear 调）</summary>
     public void Clear()
     {
         skills.Clear();
-        targets.Clear();
+        skillUseCount.Clear();
         self = null;
     }
 
@@ -135,7 +142,7 @@ public class SkillManager : MonoBehaviour
     {
         bool ok = RunPipeline();
         Debug.Log(ok
-            ? $"[{name}] 放成了技能，目标 {targets.Count} 个"
+            ? $"[{name}] 放成了技能"
             : $"[{name}] 没有技能放出来（释放判断没过 / 范围内没目标）");
     }
 
@@ -143,7 +150,7 @@ public class SkillManager : MonoBehaviour
     void PrintSkills()
     {
         foreach (var skill in skills)
-            Debug.Log($"[{name}] {skill.GetType().Name}：现在能放 {skill.CanCast(self)}", this);
+            Debug.Log($"[{name}] {skill.Type}：这场放过 {UsedCount(skill.Type)} 次，现在能放 {skill.CanCast(self)}", this);
     }
 
     #endregion

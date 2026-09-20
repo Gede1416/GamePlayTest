@@ -3,45 +3,43 @@
 
 /// <summary>
 /// 默认的释放判断：施法者活着 + 冷却好了。
-/// 冷却**自己记账**——"放成没放成"这条数它拿不到（放成要在后两段之后才知道），所以靠消息：
-/// 收到 <see cref="SkillCastEvent"/>（自己那条技能放成了）就进冷却，收到 <see cref="TurnChangedEvent"/>（进新回合）减一。
-/// 于是**冷却 ≥ 1 顺带就是"每回合最多放一次"**。
-/// 退订靠 EventPipeline.Clear()（BattleManager.ClearBattle 末尾兜一道），技能重建时旧实例直接扔掉。
+/// **"放成没放成"由自己问出来**：阶段三的零件把使用次数缓存在自己身上，这里拿技能名去施法者身上取
+/// （`caster.Skills.UsedCount(skillType)`），比上次看到的多就是刚放成，进冷却；
+/// 进新回合（`TurnChangedEvent`）冷却减一，所以**冷却 ≥ 1 顺带就是"每回合最多放一次"**。
+/// 订阅在构造函数里做（不用外面的 Init），退订靠 `BattleManager.ClearBattle()` 末尾的 `EventPipeline.Clear()`。
 /// </summary>
-public class CooldownCastCheck : ICastCheck, ISkillPart
+public class CooldownCastCheck : ICastCheck
 {
     #region 属性
 
+    readonly SkillType skillType;    // 认自己那条技能：取使用次数时的 key
     readonly int cooldown;
 
-    ISkill owner;          // 靠它从消息里认出"放成的是不是我那条技能"
     int cooldownLeft;
+    int seenUsed;                    // 上次看到的使用次数
 
     #endregion
 
     #region 构造
 
-    public CooldownCastCheck(int cooldown = 0)
+    public CooldownCastCheck(SkillType skillType, int cooldown = 0)
     {
+        this.skillType = skillType;
         this.cooldown = cooldown;
+
+        EventPipeline.Subscribe<TurnChangedEvent>(OnTurnChanged);
     }
 
     #endregion
 
     #region 公开方法
 
-    /// <summary>装配：记下自己属于哪条技能 + 订"技能放成了 / 进新回合了"两条消息</summary>
-    public void Init(ISkill owner, MapManager map)
-    {
-        this.owner = owner;
-        EventPipeline.Subscribe<SkillCastEvent>(OnSkillCast);
-        EventPipeline.Subscribe<TurnChangedEvent>(OnTurnChanged);
-    }
-
-    /// <summary>能不能放：施法者活着 且 冷却已经好了</summary>
+    /// <summary>能不能放：施法者活着 且 冷却已经好了（顺手把"刚放成过"这笔账记上）</summary>
     public virtual bool CanCast(Entity caster)
     {
         if (caster == null || caster.Health == null || caster.Health.IsDead) return false;
+
+        NoteUsed(caster);
         return cooldownLeft <= 0;
     }
 
@@ -49,10 +47,14 @@ public class CooldownCastCheck : ICastCheck, ISkillPart
 
     #region 私有方法
 
-    /// <summary>自己那条技能放成了：进冷却</summary>
-    void OnSkillCast(SkillCastEvent e)
+    /// <summary>使用次数比上次多 = 刚放成，进冷却（次数缓存在阶段三的零件里，判断只能这么问）</summary>
+    void NoteUsed(Entity caster)
     {
-        if (e.skill == owner) cooldownLeft = cooldown;
+        int used = caster.Skills != null ? caster.Skills.UsedCount(skillType) : 0;
+        if (used <= seenUsed) return;
+
+        seenUsed = used;
+        cooldownLeft = cooldown;
     }
 
     /// <summary>进新回合：冷却减一</summary>

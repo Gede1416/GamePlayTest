@@ -8,6 +8,9 @@ public class BuffCaster : ISkillCaster
 
     readonly BuffType buff;
 
+    /// <summary>使用次数缓存：这个零件放成过几次（放成一次 +1）</summary>
+    public int UsedCount { get; private set; }
+
     #endregion
 
     #region 构造
@@ -29,6 +32,7 @@ public class BuffCaster : ISkillCaster
         foreach (var t in targets)
             if (t != null) t.AddBuff(buff);
 
+        UsedCount++;
         Debug.Log($"[BuffCaster] {caster.name} 放下 {buff}");
         return true;
     }

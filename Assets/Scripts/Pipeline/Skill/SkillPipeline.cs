@@ -3,10 +3,11 @@ using UnityEngine;
 
 // ============ 技能管线三段接口 ============
 // 阶段一：技能释放判断 -> 阶段二：目标获取 -> 阶段三：技能释放
-// 三段都**不依赖任何技能对象**：范围、目标数、伤害、挂哪种 buff 这些数据由各自的实现自己带（构造函数注入），
-// 地图这类外部依赖走 ISkillPart.Init（组合技能装配时发下来）。
-// 一条技能 = 三段各拿几个实现拼起来（见 Combination/）；额度（每回合一次 / 一场一次 / 冷却）不在这里，
-// 也是阶段一里的检查自己管，数据靠消息（SkillCastEvent / TurnChangedEvent）。
+// 三段都**不依赖任何技能对象**、也不存外部依赖：范围 / 目标数 / 伤害 / 挂哪种 buff 由各自的实现自己带（构造函数注入），
+// 地图由 SkillManager 每次调阶段二时传进来。
+// 一条技能 = 三段各拿几个实现拼起来（见 Combination/）。
+// 额度（冷却 / 场次）是阶段一里的检查自己管，判据是**使用次数缓存**：
+// 次数记在阶段三的零件里（放成一次 +1），SkillManager 按技能名缓存到 skillUseCount，检查通过施法者（Entity → SkillManager）取。
 
 /// <summary>
 /// 一条技能：**三段拼起来的组合**。
@@ -14,8 +15,8 @@ using UnityEngine;
 /// </summary>
 public interface ISkill : ICastCheck, ITargetFinder, ISkillCaster
 {
-    /// <summary>装配：地图由 SkillManager 发下来</summary>
-    void Init(MapManager map);
+    /// <summary>技能名（自己的身份：释放判断拿它去施法者身上查使用次数）</summary>
+    SkillType Type { get; }
 
     /// <summary>加 / 减伤害（buff 用）：只有伤害类技能认这个加成，其它技能空转</summary>
     void AddDamage(float delta);
@@ -27,36 +28,30 @@ public interface ICastCheck
     bool CanCast(Entity caster);
 }
 
-/// <summary>阶段二：目标获取——选出这次要作用的目标</summary>
+/// <summary>阶段二：目标获取——挑出这次要作用的目标（地图由调用方给，零件自己不存）</summary>
 public interface ITargetFinder
 {
-    bool TryFindTargets(Entity caster, List<Entity> targets);
+    List<Entity> TryFindTargets(Entity caster, MapManager map);
 }
 
 /// <summary>阶段三：技能释放——对目标附加效果（扣血 / 挂 buff）</summary>
 public interface ISkillCaster
 {
-    bool Cast(Entity caster, List<Entity> targets);
-}
+    /// <summary>使用次数缓存：这个释放零件放成过几次（放成一次 +1，自己数）——释放判断要的额度就从它来</summary>
+    int UsedCount { get; }
 
-/// <summary>
-/// 三段实现需要外部依赖时实现它：组合技能在 Init 里把**"自己是谁"（owner）和地图**发下来。
-/// 要地图的（阶段二基本都要）用 map；要认自己那条技能的（冷却 / 场次额度这类判断）用 owner；用不到的就不实现。
-/// </summary>
-public interface ISkillPart
-{
-    void Init(ISkill owner, MapManager map);
+    bool Cast(Entity caster, List<Entity> targets);
 }
 
 // ============ 阶段二：目标获取 ============
 
-/// <summary>两个攻击目标获取共用的挑选逻辑：范围内按曼哈顿距离由近到远取前 targetCount 个非己方</summary>
+/// <summary>两个攻击目标获取共用的挑选逻辑：范围内按曼哈顿距离由近到远取前 targetCount 个非己方（没挑到就返回空列表）</summary>
 public static class TargetPicker
 {
-    public static bool Pick(MapManager map, Entity caster, int range, int targetCount, List<Entity> targets)
+    public static List<Entity> Pick(MapManager map, Entity caster, int range, int targetCount)
     {
-        targets.Clear();
-        if (map == null || caster == null || targetCount <= 0) return false;
+        var targets = new List<Entity>();
+        if (map == null || caster == null || targetCount <= 0) return targets;
 
         var self = map.WorldToCell(caster.transform.position);
 
@@ -77,13 +72,13 @@ public static class TargetPicker
             targets.Add(entity);
         }
 
-        if (targets.Count == 0) return false;
+        if (targets.Count == 0) return targets;
 
         targets.Sort((a, b) => Dist(map, self, a).CompareTo(Dist(map, self, b)));          // 近的优先
         if (targets.Count > targetCount)
             targets.RemoveRange(targetCount, targets.Count - targetCount);                 // 目标数量上限
 
-        return true;
+        return targets;
     }
 
     #region 私有方法

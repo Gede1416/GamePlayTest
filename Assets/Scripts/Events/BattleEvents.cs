@@ -3,7 +3,7 @@
 /// 加新消息只要在这里加一个类，EventPipeline 不用改。
 /// 现在的收发：TurnChangedEvent（回合刷新 + 推技能冷却）/ DamageEvent（伤害数字）/ HealthChangedEvent（血条）/
 /// EntityDiedEvent（放开格子 + 判胜负）/ EntitySpawnedEvent（挂血条）/ BuffChangedEvent（buff 条）/
-/// SkillCastEvent（技能放成了：各释放判断自己记冷却与额度）/ BattleEndedEvent（显示胜方）。
+/// BattleEndedEvent（显示胜方）。
 /// </summary>
 
 /// <summary>回合刷新：进入第 round 回合（共 totalRounds 回合）</summary>
@@ -141,34 +141,6 @@ public class BuffChangedEvent
     public BuffChangedEvent(Entity entity)
     {
         this.entity = entity;
-    }
-
-    #endregion
-}
-
-/// <summary>
-/// 技能放成了：谁放的、哪条技能。
-/// 冷却 / 每回合一次 / 一场一次这些账，都在各自的释放判断（CastCheck）里记——
-/// 而"放成没放成"是后两段跑完才知道的，判断自己问不到，所以由技能管理器发这条消息送过去。
-/// </summary>
-public class SkillCastEvent
-{
-    #region 属性
-
-    /// <summary>施法者</summary>
-    public readonly Entity caster;
-
-    /// <summary>放成的那条技能</summary>
-    public readonly ISkill skill;
-
-    #endregion
-
-    #region 构造
-
-    public SkillCastEvent(Entity caster, ISkill skill)
-    {
-        this.caster = caster;
-        this.skill = skill;
     }
 
     #endregion
