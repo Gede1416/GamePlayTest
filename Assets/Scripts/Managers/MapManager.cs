@@ -193,6 +193,12 @@ public class MapManager : MonoBehaviour
     /// <summary>可进入 = 在网格内 且 没被占（没登记 uuid 的也算占用）</summary>
     public bool CanEnter(Vector2Int cell) => InBounds(cell) && UuidAt(cell) == Empty;
 
+    /// <summary>格子坐标是否在网格内（Vector2Int 的 x = 列，y = 行，不是世界高度）；NavTest 这类外部工具要用</summary>
+    public bool InBounds(Vector2Int cell)
+    {
+        return cell.x >= 0 && cell.x < Cols && cell.y >= 0 && cell.y < Rows;
+    }
+
     /// <summary>两格之间的曼哈顿距离（两个分量差的绝对值之和）</summary>
     public static int Manhattan(Vector2Int a, Vector2Int b)
     {
@@ -389,12 +395,6 @@ public class MapManager : MonoBehaviour
     void ClearCells()
     {
         if (HasGrid) System.Array.Clear(cells, 0, cells.Length);
-    }
-
-    /// <summary>格子坐标是否在网格内（Vector2Int 的 x = 列，y = 行，不是世界高度）</summary>
-    bool InBounds(Vector2Int cell)
-    {
-        return cell.x >= 0 && cell.x < Cols && cell.y >= 0 && cell.y < Rows;
     }
 
     #endregion
