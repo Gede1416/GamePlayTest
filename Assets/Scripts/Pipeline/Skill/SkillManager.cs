@@ -18,6 +18,9 @@ public enum SkillType
 
     /// <summary>加攻：给自己挂 AddAttack buff（+5 × 3 回合），一场战斗只放一次</summary>
     AttackBuff = 3,
+
+    /// <summary>提升移动能力：给自己挂 AddMoveSteps buff（+2 步 × 3 回合），冷却 5 回合</summary>
+    MoveStepsBuff = 4,
 }
 
 /// <summary>
@@ -120,6 +123,7 @@ public class SkillManager : MonoBehaviour
             case SkillType.Ranged: return new RangedSkill();
             case SkillType.HealBuff: return new HealBuffSkill();
             case SkillType.AttackBuff: return new AttackBuffSkill();
+            case SkillType.MoveStepsBuff: return new MoveStepsBuffSkill();
         }
 
         Debug.LogWarning($"[{name}] {type} 没接实现");
