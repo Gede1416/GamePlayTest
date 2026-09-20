@@ -3,17 +3,14 @@ using System.Collections.Generic;
 /// <summary>
 /// 加攻技能：给自己挂一条 AddAttack buff（伤害加成落到伤害技能的阶段三上）。
 /// 释放判断是**两条检查的"与"**：活着（CooldownCastCheck 顺带管）+ **一场战斗只放一次**（OnlyCastOnceCastCheck，
-/// 次数从施法者身上的使用次数缓存里取）。
+/// 靠 SkillManager 放成后发的 SkillCastEvent 记账）。
 /// 目标就是自己，所以阶段二用 SelfTargetFinder。
 /// 成员顺序：属性 → 公开方法。
 /// </summary>
 public class AttackBuffSkill : ISkill
 {
-    /// <summary>技能名（自己的身份：释放判断拿它去施法者身上取使用次数）</summary>
+    /// <summary>技能名（自己的身份：释放判断拿它去对消息里的技能名）</summary>
     const SkillType Name = SkillType.AttackBuff;
-
-    /// <summary>挂哪种 buff（数值与持续回合在 Buffs/Combination 里那份组合 buff 自己带）</summary>
-    const BuffType Buff = BuffType.AddAttack;
 
     readonly List<ICastCheck> castChecks = new()
     {
@@ -28,7 +25,7 @@ public class AttackBuffSkill : ISkill
 
     readonly List<ISkillCaster> skillCasters = new()
     {
-        new BuffCaster(Buff),                       // 挂 buff
+        new BuffCaster<AddAttackBuff>(),            // 挂哪种 buff 由技能这边挑（数值在组合 buff 里）
     };
 
     /// <summary>技能名</summary>

@@ -11,9 +11,6 @@ public class HealBuffSkill : ISkill
     /// <summary>技能名（自己的身份：释放判断拿它去施法者身上取使用次数）</summary>
     const SkillType Name = SkillType.HealBuff;
 
-    /// <summary>挂哪种 buff（数值与持续回合在 Buffs/Combination 里那份组合 buff 自己带）</summary>
-    const BuffType Buff = BuffType.Heal;
-
     /// <summary>冷却回合数（≥ 1 顺带就是"每回合最多放一次"）</summary>
     const int Cooldown = 1;
 
@@ -30,7 +27,7 @@ public class HealBuffSkill : ISkill
 
     readonly List<ISkillCaster> skillCasters = new()
     {
-        new BuffCaster(Buff),                       // 挂 buff
+        new BuffCaster<HealBuff>(),                 // 挂哪种 buff 由技能这边挑（数值在组合 buff 里）
     };
 
     /// <summary>技能名</summary>

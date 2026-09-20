@@ -1,5 +1,4 @@
 using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -138,10 +137,10 @@ public class Entity : MonoBehaviour
         if (Skills != null) Skills.AddDamage(delta);
     }
 
-    /// <summary>挂一条 buff：targets 留空就挂给自己（转发给 BuffManager；身上没这个组件就什么都不做）</summary>
-    public void AddBuff(BuffType type, List<Entity> targets = null)
+    /// <summary>挂一条 buff：buff 由调用方造好（挂哪种由技能的阶段三配），挂给谁就是自己；身上没这个组件就什么都不做</summary>
+    public void AddBuff(IBuff buff)
     {
-        if (Buffs != null) Buffs.Add(type, targets);
+        if (Buffs != null) Buffs.Add(buff);
     }
 
     /// <summary>

@@ -11,11 +11,8 @@ public class MoveStepsBuffSkill : ISkill
     /// <summary>技能名（自己的身份：释放判断拿它去对消息里的技能名）</summary>
     const SkillType Name = SkillType.MoveStepsBuff;
 
-    /// <summary>挂哪种 buff</summary>
-    const BuffType Buff = BuffType.AddMoveSteps;
-
     /// <summary>冷却回合数</summary>
-    const int Cooldown = 5;
+    const int Cooldown = 1;
 
     readonly List<ICastCheck> castChecks = new()
     {
@@ -29,7 +26,7 @@ public class MoveStepsBuffSkill : ISkill
 
     readonly List<ISkillCaster> skillCasters = new()
     {
-        new BuffCaster(Buff),                       // 挂 buff
+        new BuffCaster<AddMoveStepsBuff>(),         // 挂哪种 buff 由技能这边挑（数值在组合 buff 里）
     };
 
     /// <summary>技能名</summary>
