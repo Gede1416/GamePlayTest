@@ -2,10 +2,10 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// 技能管理器（挂在实体上，一个实体一个）：手里是**一组技能**，每个技能都有自己的三段与额度。
-/// 三段（阶段一 释放判断 → 阶段二 目标获取 → 阶段三 释放）各自独立、不依赖技能对象，
-/// 装配交给 SkillPipelineFactory（按 SkillCfg.type 造），本组件只负责驱动。
-/// 额度归 Skill：每个技能每回合最多放一次（放成了才算），勾了 oncePerBattle 的一整场只放一次。
+/// 技能管理器（挂在实体上，一个实体一个）：手里是**一组技能**。
+/// **Inspector 上只配技能名**（`skillTypes` 列表）——技能的完整内容（三段流水线 + 数值 + 额度）
+/// 由 SkillFactory 按技能名给出（SkillDefinition），这里只负责按名单造出来、每回合挨个尝试。
+/// 额度归 Skill：每个技能每回合最多放一次（放成了才算），定义里勾了 oncePerBattle 的一整场只放一次。
 /// 成员顺序：属性 → 生命周期 → 公开方法 → 私有方法（各组内按调用顺序）。
 /// </summary>
 [RequireComponent(typeof(Entity))]
@@ -13,8 +13,8 @@ public class SkillManager : MonoBehaviour
 {
     #region 属性
 
-    [Tooltip("这个实体有哪些技能：数值在预制体上配（伤害 / 冷却 / 挂哪种 buff / 是否每场一次）")]
-    [SerializeField] List<SkillCfg> skillCfgs = new();
+    [Tooltip("这个实体有哪几个技能：只选技能名，具体内容（范围 / 伤害 / 冷却 / buff / 额度）在 SkillFactory 里定义")]
+    [SerializeField] List<SkillType> skillTypes = new();
 
     [Tooltip("地图管理器；留空则取场景里的第一个")]
     public MapManager map;
@@ -22,7 +22,7 @@ public class SkillManager : MonoBehaviour
     /// <summary>最近一次目标获取选出来的目标（各技能共用这块缓冲区）</summary>
     public readonly List<Entity> targets = new();
 
-    readonly List<Skill> skills = new();     // 按 skillCfgs 造出来的运行期技能
+    readonly List<Skill> skills = new();     // 按 skillTypes 造出来的运行期技能
 
     Entity self;
 
@@ -33,24 +33,23 @@ public class SkillManager : MonoBehaviour
 
     #region 公开方法
 
-    /// <summary>初始化：由 Entity.Init 调用（地图由上级发下来），这里找身上的 Entity 并按配置造技能</summary>
+    /// <summary>初始化：由 Entity.Init 调用（地图由上级发下来），这里找身上的 Entity 并按名单造技能</summary>
     public void Init()
     {
         self = GetComponent<Entity>();
         Build();
     }
 
-    /// <summary>按配置重建技能列表（重置所有额度：每回合一次 / 每场一次的计数都归零）</summary>
+    /// <summary>按技能名单重建技能列表（重置所有额度：每回合一次 / 每场一次的计数都归零）</summary>
     public void Build()
     {
         skills.Clear();
-        foreach (var cfg in skillCfgs)
+        foreach (var type in skillTypes)
         {
-            if (cfg == null) continue;
+            var definition = SkillFactory.Create(type, map);
+            if (definition == null) continue;
 
-            var skill = new Skill(cfg);
-            SkillPipelineFactory.Wire(skill, cfg, map);
-            skills.Add(skill);
+            skills.Add(new Skill(definition));
         }
     }
 
@@ -77,7 +76,7 @@ public class SkillManager : MonoBehaviour
         foreach (var skill in skills) skill.AddDamage(delta);
     }
 
-    /// <summary>清理：清空技能与目标（额度也跟着没了，下次 Init 按配置重建）（由 Entity.Clear 调）</summary>
+    /// <summary>清理：清空技能与目标（额度也跟着没了，下次 Init 按名单重建）（由 Entity.Clear 调）</summary>
     public void Clear()
     {
         skills.Clear();
@@ -103,9 +102,9 @@ public class SkillManager : MonoBehaviour
     {
         foreach (var skill in skills)
         {
-            var cooldown = skill.CastCheck as ICooldown;
-            Debug.Log($"[{name}] {skill.Cfg.type}：伤害 {skill.Cfg.damage}，冷却剩 {(cooldown != null ? cooldown.CooldownLeft : 0)}，"
-                      + $"每场一次 {skill.Cfg.oncePerBattle}，本场放过 {skill.UsedThisBattle}，现在能放 {skill.CanUse}", this);
+            var definition = skill.Definition;
+            Debug.Log($"[{name}] {skill.Type}：伤害 {definition.Damage}，"
+                      + $"每场一次 {definition.oncePerBattle}，本场放过 {skill.UsedThisBattle}，现在能放 {skill.CanUse}", this);
         }
     }
 

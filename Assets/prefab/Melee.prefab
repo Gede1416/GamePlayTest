@@ -52,19 +52,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a8b16c453fdc47e191ba766d673b6c5e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  skillCfgs:
-  - type: 0
-    damage: 20
-    cooldown: 1
-    buff: 0
-    oncePerBattle: 0
-    onlyWhenHurt: 0
-  - type: 2
-    damage: 0
-    cooldown: 0
-    buff: 2
-    oncePerBattle: 1
-    onlyWhenHurt: 0
+  skillTypes:
+  - 0
+  - 3
   map: {fileID: 0}
 --- !u!114 &6128142298362892779
 MonoBehaviour:

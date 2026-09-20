@@ -24,7 +24,7 @@ public interface ISkillCaster
     bool Cast(Entity caster, List<Entity> targets);
 }
 
-/// <summary>带冷却的阶段一实现再实现它，Skill 释放成功后会调 StartCooldown、每回合调 TickTurn</summary>
+/// <summary>带冷却的阶段一实现再实现它，SkillDefinition 释放成功后会调 StartCooldown、每回合调 TickTurn</summary>
 public interface ICooldown
 {
     int CooldownLeft { get; }
@@ -46,7 +46,7 @@ public class CooldownCastCheck : ICastCheck, ICooldown
         this.cooldown = cooldown;
     }
 
-    /// <summary>进冷却：放成一次技能后由 Skill 调</summary>
+    /// <summary>进冷却：放成一次技能后由 SkillDefinition 调</summary>
     public void StartCooldown() => CooldownLeft = cooldown;
 
     /// <summary>回合推进：冷却减一</summary>
