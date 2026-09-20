@@ -76,7 +76,7 @@ public class BuffBar : MonoBehaviour
             foreach (var buff in buffs.Active)
             {
                 if (builder.Length > 0) builder.Append(' ');
-                builder.Append(buff.Cfg.type);
+                builder.Append(buff.Type);
                 if (buff.Left > 0) builder.Append('(').Append(buff.Left).Append(')');
             }
         }
