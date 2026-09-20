@@ -87,15 +87,6 @@ public class BuffManager : MonoBehaviour
     /// <summary>广播"buff 变了"（挂上 / 到期移除 / 清场都走这里，界面只认这条消息）</summary>
     void SendChanged() => EventPipeline.Send(new BuffChangedEvent(owner));
 
-    [ContextMenu("测试：挂一个治疗 buff")]
-    void TestHeal() => Add(new HealBuff());
-
-    [ContextMenu("测试：挂一个增加移动步数 buff")]
-    void TestMoveSteps() => Add(new AddMoveStepsBuff());
-
-    [ContextMenu("测试：挂一个增加攻击力 buff")]
-    void TestAttack() => Add(new AddAttackBuff());
-
     [ContextMenu("打印正在生效的 buff")]
     void PrintBuffs()
     {

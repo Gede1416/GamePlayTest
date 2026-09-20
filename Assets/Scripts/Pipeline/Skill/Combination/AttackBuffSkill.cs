@@ -25,7 +25,7 @@ public class AttackBuffSkill : ISkill
 
     readonly List<ISkillCaster> skillCasters = new()
     {
-        new BuffCaster<AddAttackBuff>(),            // 挂哪种 buff 由技能这边挑（数值在组合 buff 里）
+        new AddAttackBuffCaster(),                  // 挂哪种 buff 由技能这边挑（内容在那个 caster 里）
     };
 
     /// <summary>技能名</summary>
