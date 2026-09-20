@@ -221,6 +221,7 @@ MonoBehaviour:
   resultText: {fileID: 321782101}
   healthBarPath: Assets/prefab/HealthBar.prefab
   damagePopupPath: Assets/prefab/DamagePopup.prefab
+  buffBarPath: Assets/prefab/BuffBar.prefab
 --- !u!1 &321782090
 GameObject:
   m_ObjectHideFlags: 0
