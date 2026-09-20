@@ -6,7 +6,7 @@ using UnityEngine;
 /// 实体：组件的统一入口，也是对外唯一门面（回合 / 地图 / UI 只认 Entity）。
 /// 数据所有权：身份(uuid)、先攻、回合步数、管线引用由 Entity 自己持有；
 /// 生命值与阵营由 Health 持有（这里只转发）；"技能"由管线组件承担
-/// （移动管线 AutoPilot + 技能管线 SkillManager），技能数据存在各自的 Skill 里。
+/// （移动管线 AutoPilot + 技能管线 SkillManager），技能内容在各条组合技能里。
 /// 成员顺序：属性 → 生命周期 → 公开方法 → 私有方法（各组内按调用顺序）。
 /// </summary>
 [RequireComponent(typeof(AutoPilot))]
@@ -146,19 +146,20 @@ public class Entity : MonoBehaviour
 
     /// <summary>
     /// 轮到它行动的简单回合操作：**放技能 -> 移动 -> 再放技能**。
-    /// 每个技能每回合最多放一次（放成了才算额度），所以第二次只会补放"开局够不着、走完才够得着"的那次；
+    /// 每个技能的额度（冷却 / 每回合一次 / 一场一次）由它自己的释放判断记账，这里不用管：
+    /// 冷却与"放过没"都是判断自己收消息（SkillCastEvent / TurnChangedEvent）算的，
+    /// 所以第二次只会补放"开局够不着、走完才够得着"的那次（放成过的会被判断挡住）；
     /// 移动是协程动画，所以这里是协程：等它走完再补第二次（TurnManager 直接 yield 它）。
     /// </summary>
     public IEnumerator TakeTurnRoutine()
     {
         Buffs?.TickTurn();                                       // 先结算 buff（治疗 / 到期加成），再按最新数值行动
         Pilot?.ApplySteps(moveSteps);                            // 步数补满
-        Skills?.TickTurn();                                      // 清"本回合放过"的额度 + 推冷却
 
         Skills?.RunPipeline();                                   // 放技能 1
         if (Pilot != null) Pilot.RunPipeline();                  // 移动（找目标走过去）
         while (Pilot != null && Pilot.IsFollowing) yield return null;   // 等移动动画走完
-        Skills?.RunPipeline();                                   // 放技能 2（本回合放成过的会被额度挡住）
+        Skills?.RunPipeline();                                   // 放技能 2（放成过的会被各自的释放判断挡住）
     }
 
     /// <summary>清理：把清理发给身上的组件（Skills → AutoPilot → Buffs → DeathEffect → Health，与初始化相反的顺序），由 BattleManager 统一调</summary>

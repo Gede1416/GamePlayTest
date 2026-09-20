@@ -5,8 +5,8 @@ using UnityEngine;
 /// Buff 管理器（挂在实体上，一个实体一个）：按**队列**存正在生效的 buff，每次结算轮转一圈——
 /// 出队 → <c>Trigger()</c> → 过期的 <c>Remove()</c> 且**不再入队**，没过期的重新入队。
 /// 数值 / 持续回合由 BuffFactory 决定，这里只管队列与生命周期。
-/// 结算时机：<c>Entity.TakeTurnRoutine()</c> 开头调 <c>TickTurn()</c>（和 SkillManager.TickTurn 清技能额度 / 推冷却同一个位置，
-/// 所以"1 回合"= 自己行动一次；要改成"每大回合"就挪到 TurnChangedEvent 那边）。
+/// 结算时机：<c>Entity.TakeTurnRoutine()</c> 开头调 <c>TickTurn()</c>，所以"1 回合"= 自己行动一次
+/// （技能冷却不在这里推：那是各技能的释放判断收 <c>TurnChangedEvent</c> 自己减的，按大回合走）。
 /// 由 Entity.Init / Clear 调（组件自己不写 Awake / Start）。
 /// 成员顺序：属性 → 生命周期 → 公开方法 → 私有方法（各组内按调用顺序）。
 /// </summary>

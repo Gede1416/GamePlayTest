@@ -1,0 +1,33 @@
+using System.Collections.Generic;
+
+/// <summary>近战目标获取：范围 1 格、1 个目标。地图由组合技能在装配时发下来</summary>
+public class MeleeTargetFinder : ITargetFinder, ISkillPart
+{
+    #region 属性
+
+    /// <summary>技能范围（格）</summary>
+    public const int Range = 1;
+
+    /// <summary>最多选几个目标</summary>
+    public const int TargetCount = 1;
+
+    MapManager map;
+
+    #endregion
+
+    #region 公开方法
+
+    /// <summary>装配：地图由组合技能发下来</summary>
+    public void Init(ISkill owner, MapManager map)
+    {
+        this.map = map;
+    }
+
+    /// <summary>按范围挑目标：Range 格内的 1 个最近的非己方</summary>
+    public bool TryFindTargets(Entity caster, List<Entity> targets)
+    {
+        return TargetPicker.Pick(map, caster, Range, TargetCount, targets);
+    }
+
+    #endregion
+}

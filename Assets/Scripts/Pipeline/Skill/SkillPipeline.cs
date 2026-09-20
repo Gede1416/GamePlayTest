@@ -4,7 +4,22 @@ using UnityEngine;
 // ============ 技能管线三段接口 ============
 // 阶段一：技能释放判断 -> 阶段二：目标获取 -> 阶段三：技能释放
 // 三段都**不依赖任何技能对象**：范围、目标数、伤害、挂哪种 buff 这些数据由各自的实现自己带（构造函数注入），
-// 地图等外部依赖同样走构造函数注入。额度（每回合一次 / 每场一次）不在这里，归 Skill 管。
+// 地图这类外部依赖走 ISkillPart.Init（组合技能装配时发下来）。
+// 一条技能 = 三段各拿几个实现拼起来（见 Combination/）；额度（每回合一次 / 一场一次 / 冷却）不在这里，
+// 也是阶段一里的检查自己管，数据靠消息（SkillCastEvent / TurnChangedEvent）。
+
+/// <summary>
+/// 一条技能：**三段拼起来的组合**。
+/// 判断之间是"与"（都过才放）、目标获取之间是"或"（谁先找到算谁）、释放之间是"与"（都成功才算放成）。
+/// </summary>
+public interface ISkill : ICastCheck, ITargetFinder, ISkillCaster
+{
+    /// <summary>装配：地图由 SkillManager 发下来</summary>
+    void Init(MapManager map);
+
+    /// <summary>加 / 减伤害（buff 用）：只有伤害类技能认这个加成，其它技能空转</summary>
+    void AddDamage(float delta);
+}
 
 /// <summary>阶段一：技能释放判断——这次能不能放（自己判断，不看别人）</summary>
 public interface ICastCheck
@@ -24,61 +39,13 @@ public interface ISkillCaster
     bool Cast(Entity caster, List<Entity> targets);
 }
 
-/// <summary>带冷却的阶段一实现再实现它，SkillDefinition 释放成功后会调 StartCooldown、每回合调 TickTurn</summary>
-public interface ICooldown
-{
-    int CooldownLeft { get; }
-    void StartCooldown();
-    void TickTurn();
-}
-
-// ============ 阶段一：释放判断 ============
-
-/// <summary>默认的释放判断：施法者活着 + 冷却好了（冷却自己数）</summary>
-public class CooldownCastCheck : ICastCheck, ICooldown
-{
-    readonly int cooldown;
-
-    public int CooldownLeft { get; private set; }
-
-    public CooldownCastCheck(int cooldown = 0)
-    {
-        this.cooldown = cooldown;
-    }
-
-    /// <summary>进冷却：放成一次技能后由 SkillDefinition 调</summary>
-    public void StartCooldown() => CooldownLeft = cooldown;
-
-    /// <summary>回合推进：冷却减一</summary>
-    public void TickTurn()
-    {
-        if (CooldownLeft > 0) CooldownLeft--;
-    }
-
-    /// <summary>能不能放：施法者活着 且 冷却已经好了</summary>
-    public virtual bool CanCast(Entity caster)
-    {
-        if (caster == null || caster.Health == null || caster.Health.IsDead) return false;
-        return CooldownLeft <= 0;
-    }
-}
-
 /// <summary>
-/// 加一条血量判断的释放判断：在"活着 + 冷却好了"之上，再要求**自己的血量没满**（满血时治疗没意义，不放）。
-/// 给治疗这类技能用；血量读的是 Entity 门面（Hp / MaxHp），不直接碰 Health 的数据。
+/// 三段实现需要外部依赖时实现它：组合技能在 Init 里把**"自己是谁"（owner）和地图**发下来。
+/// 要地图的（阶段二基本都要）用 map；要认自己那条技能的（冷却 / 场次额度这类判断）用 owner；用不到的就不实现。
 /// </summary>
-public class WoundedCastCheck : CooldownCastCheck
+public interface ISkillPart
 {
-    public WoundedCastCheck(int cooldown = 0) : base(cooldown)
-    {
-    }
-
-    /// <summary>能不能放：活着 + 冷却好了 + 血量小于上限</summary>
-    public override bool CanCast(Entity caster)
-    {
-        if (!base.CanCast(caster)) return false;
-        return caster.Hp < caster.MaxHp;
-    }
+    void Init(ISkill owner, MapManager map);
 }
 
 // ============ 阶段二：目标获取 ============
@@ -128,110 +95,4 @@ public static class TargetPicker
 
     #endregion
 
-}
-
-/// <summary>近战目标获取：范围 1 格、1 个目标</summary>
-public class MeleeTargetFinder : ITargetFinder
-{
-    public const int Range = 1;
-    public const int TargetCount = 1;
-
-    readonly MapManager map;
-
-    public MeleeTargetFinder(MapManager map)
-    {
-        this.map = map;
-    }
-
-    /// <summary>按范围挑目标：Range 格内的 1 个最近的非己方</summary>
-    public bool TryFindTargets(Entity caster, List<Entity> targets)
-    {
-        return TargetPicker.Pick(map, caster, Range, TargetCount, targets);
-    }
-}
-
-/// <summary>远程目标获取：范围 3 格、1 个目标</summary>
-public class RangedTargetFinder : ITargetFinder
-{
-    public const int Range = 3;
-    public const int TargetCount = 1;
-
-    readonly MapManager map;
-
-    public RangedTargetFinder(MapManager map)
-    {
-        this.map = map;
-    }
-
-    /// <summary>按范围挑目标：Range 格内的 1 个最近的非己方</summary>
-    public bool TryFindTargets(Entity caster, List<Entity> targets)
-    {
-        return TargetPicker.Pick(map, caster, Range, TargetCount, targets);
-    }
-}
-
-/// <summary>给自己上 buff 这类技能用：目标就是自己，永远找得到（活着才放得出去由阶段一管）</summary>
-public class SelfTargetFinder : ITargetFinder
-{
-    /// <summary>把施法者自己当成唯一目标</summary>
-    public bool TryFindTargets(Entity caster, List<Entity> targets)
-    {
-        targets.Clear();
-        if (caster == null) return false;
-
-        targets.Add(caster);
-        return true;
-    }
-}
-
-// ============ 阶段三：技能释放 ============
-
-/// <summary>伤害类技能的释放：对每个目标扣 damage 血（伤害自己带）</summary>
-public class DamageCaster : ISkillCaster
-{
-    public float damage;
-
-    public DamageCaster(float damage = 10f)
-    {
-        this.damage = damage;
-    }
-
-    /// <summary>加 / 减伤害（buff 用；delta 为负就是减回去）</summary>
-    public void AddDamage(float delta) => damage += delta;
-
-    /// <summary>对每个目标扣 damage 血；没有目标就返回 false</summary>
-    public bool Cast(Entity caster, List<Entity> targets)
-    {
-        if (caster == null || targets == null || targets.Count == 0) return false;
-
-        // 伤害只从 Entity 这个门面进去（Entity.TakeDamage 再转给 Health）
-        foreach (var t in targets)
-            if (t != null) t.TakeDamage(damage);
-
-        Debug.Log($"[DamageCaster] {caster.name} 命中 {targets.Count} 个目标，每个 {damage} 伤害");
-        return true;
-    }
-}
-
-/// <summary>Buff 类技能的释放：给每个目标挂一条 buff（挂哪种由构造函数带）</summary>
-public class BuffCaster : ISkillCaster
-{
-    readonly BuffType buff;
-
-    public BuffCaster(BuffType buff)
-    {
-        this.buff = buff;
-    }
-
-    /// <summary>对每个目标挂 buff（走 Entity.AddBuff 门面，目标自己的 BuffManager 收下来）</summary>
-    public bool Cast(Entity caster, List<Entity> targets)
-    {
-        if (caster == null || targets == null || targets.Count == 0) return false;
-
-        foreach (var t in targets)
-            if (t != null) t.AddBuff(buff);
-
-        Debug.Log($"[BuffCaster] {caster.name} 放下 {buff}");
-        return true;
-    }
 }
