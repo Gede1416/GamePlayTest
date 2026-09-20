@@ -38,7 +38,7 @@ public class MoveStepsEffect : IBuffEffect
     public void Revert(Entity target, BuffCfg cfg) => target.AddMoveSteps(-(int)cfg.value);
 }
 
-/// <summary>增加攻击力：挂上时加给 Attacker 的伤害，移除时减回去</summary>
+/// <summary>增加攻击力：挂上时加给伤害类技能的伤害，移除时减回去</summary>
 public class AttackEffect : IBuffEffect
 {
     public void Apply(Entity target, BuffCfg cfg) => target.AddDamage(cfg.value);

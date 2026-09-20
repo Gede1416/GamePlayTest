@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Buff 类型（枚举跟着工厂走，和 AttackType / TargetSourceType 一个套路）。
+/// Buff 类型（枚举跟着工厂走，和 SkillType / TargetSourceType 一个套路）。
 /// </summary>
 public enum BuffType
 {
@@ -13,7 +13,7 @@ public enum BuffType
 
 /// <summary>
 /// Buff 静态工厂：按类型造一条 Buff（配置 + 效果 + 目标）。
-/// 数值与持续回合作为常量写在这里（和 AttackPipeline.cs 里"近战 1 格 / 远程 3 格"是常量一个套路）；
+/// 数值与持续回合作为常量写在这里（和 SkillPipeline.cs 里"近战 1 格 / 远程 3 格"是常量一个套路）；
 /// 要能在 Inspector 里调数值，再把下面这组常量挪进一份 BuffCfg 资产即可，别的地方不用动。
 /// </summary>
 public static class BuffFactory

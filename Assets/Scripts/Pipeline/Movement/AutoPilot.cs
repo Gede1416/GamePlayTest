@@ -7,7 +7,7 @@ using UnityEngine;
 /// 阶段一 获得目标点（ITargetSource）-> 阶段二 构建行动路径（IPathPlanner）-> 阶段三 执行路径（IPathExecutor）。
 /// 装配在本组件内完成（Build() 调 PathPipelineFactory，阶段三自己挪位置，不再有独立的移动组件）；
 /// 本回合可走步数（ApplySteps）存在这里，只有"远离"阶段一挑落点时读它。
-/// 和攻击管线的 Attacker 一个套路。只读地图数据（CanEnter），占用数据由 MapManager 维护。
+/// 和技能管线的 SkillManager 一个套路。只读地图数据（CanEnter），占用数据由 MapManager 维护。
 /// 成员顺序：属性 → 生命周期 → 公开方法 → 私有方法（各组内按调用顺序）。
 /// </summary>
 public class AutoPilot : MonoBehaviour

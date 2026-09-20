@@ -1,11 +1,12 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
 /// 实体：组件的统一入口，也是对外唯一门面（回合 / 地图 / UI 只认 Entity）。
 /// 数据所有权：身份(uuid)、先攻、回合步数、管线引用由 Entity 自己持有；
 /// 生命值与阵营由 Health 持有（这里只转发）；"技能"由管线组件承担
-/// （移动管线 AutoPilot + 攻击管线 Attacker），不另存技能数据。
+/// （移动管线 AutoPilot + 技能管线 SkillManager），技能数据存在各自的 Skill 里。
 /// 成员顺序：属性 → 生命周期 → 公开方法 → 私有方法（各组内按调用顺序）。
 /// </summary>
 [RequireComponent(typeof(AutoPilot))]
@@ -49,8 +50,8 @@ public class Entity : MonoBehaviour
     /// <summary>生命值组件，可能没有</summary>
     public Health Health { get; private set; }
 
-    /// <summary>攻击管线组件，可能没有（没有就只移动不攻击）</summary>
-    public Attacker Attacker { get; private set; }
+    /// <summary>技能管线组件（手里是一组技能），可能没有（没有就只移动不放技能）</summary>
+    public SkillManager Skills { get; private set; }
 
     /// <summary>Buff 管理器，可能没有（没有就挂不上 buff）</summary>
     public BuffManager Buffs { get; private set; }
@@ -69,7 +70,7 @@ public class Entity : MonoBehaviour
     #region 公开方法
 
     /// <summary>
-    /// 初始化：由上级（BattleManager）调用，自己再把初始化发给身上的组件（Health → DeathEffect → Buffs → AutoPilot → Attacker）。
+    /// 初始化：由上级（BattleManager）调用，自己再把初始化发给身上的组件（Health → DeathEffect → Buffs → AutoPilot → Skills）。
     /// 不传 data：用预制体里配好的（Inspector 字段）装配；
     /// 传了 data：先用 data 覆盖，再装配（管线按新类型重建、步数补满）。
     /// </summary>
@@ -84,11 +85,10 @@ public class Entity : MonoBehaviour
             moveSteps = data.moveSteps;
             if (data.map != null) map = data.map;
             SourceType = data.moveSource;
-            if (Attacker != null) Attacker.Type = data.attackType;
         }
 
         if (uuid <= 0) Debug.LogWarning($"{name}: uuid 没配（<= 0），地图索引会用不了", this);
-        if (map == null) Debug.LogWarning($"{name}: map 没配，移动 / 攻击管线拿不到地图数据", this);
+        if (map == null) Debug.LogWarning($"{name}: map 没配，移动 / 技能管线拿不到地图数据", this);
 
         if (uiPoint == null) uiPoint = CreateUiPoint();      // UI 都挂在它下面
 
@@ -106,10 +106,10 @@ public class Entity : MonoBehaviour
             Pilot.ApplySteps(moveSteps);
         }
 
-        if (Attacker != null)
+        if (Skills != null)
         {
-            Attacker.map = map;
-            Attacker.Init();
+            Skills.map = map;
+            Skills.Init();
         }
     }
 
@@ -132,38 +132,39 @@ public class Entity : MonoBehaviour
         if (Pilot != null) Pilot.ApplySteps(moveSteps);
     }
 
-    /// <summary>加 / 减攻击力（buff 用，转发给 Attacker：伤害归它持有）</summary>
+    /// <summary>加 / 减攻击力（buff 用，转发给 SkillManager：伤害归各技能的阶段三持有）</summary>
     public void AddDamage(float delta)
     {
-        if (Attacker != null) Attacker.AddDamage(delta);
+        if (Skills != null) Skills.AddDamage(delta);
     }
 
-    /// <summary>挂一条 buff（转发给 BuffManager；身上没这个组件就什么都不做）</summary>
-    public void AddBuff(BuffType type)
+    /// <summary>挂一条 buff：targets 留空就挂给自己（转发给 BuffManager；身上没这个组件就什么都不做）</summary>
+    public void AddBuff(BuffType type, List<Entity> targets = null)
     {
-        if (Buffs != null) Buffs.Add(type);
+        if (Buffs != null) Buffs.Add(type, targets);
     }
 
     /// <summary>
-    /// 轮到它行动的简单回合操作：**攻击 -> 移动 -> 攻击**。
-    /// 移动是协程动画，所以这里是协程：等它走完再补第二次攻击（TurnManager 直接 yield 它）。
+    /// 轮到它行动的简单回合操作：**放技能 -> 移动 -> 再放技能**。
+    /// 每个技能每回合最多放一次（放成了才算额度），所以第二次只会补放"开局够不着、走完才够得着"的那次；
+    /// 移动是协程动画，所以这里是协程：等它走完再补第二次（TurnManager 直接 yield 它）。
     /// </summary>
     public IEnumerator TakeTurnRoutine()
     {
         Buffs?.TickTurn();                                       // 先结算 buff（治疗 / 到期加成），再按最新数值行动
         Pilot?.ApplySteps(moveSteps);                            // 步数补满
-        Attacker?.TickTurn();                                    // 技能冷却推进
+        Skills?.TickTurn();                                      // 清"本回合放过"的额度 + 推冷却
 
-        Attacker?.RunPipeline();                                 // 攻击 1
+        Skills?.RunPipeline();                                   // 放技能 1
         if (Pilot != null) Pilot.RunPipeline();                  // 移动（找目标走过去）
         while (Pilot != null && Pilot.IsFollowing) yield return null;   // 等移动动画走完
-        Attacker?.RunPipeline();                                 // 攻击 2
+        Skills?.RunPipeline();                                   // 放技能 2（本回合放成过的会被额度挡住）
     }
 
-    /// <summary>清理：把清理发给身上的组件（Attacker → AutoPilot → Buffs → DeathEffect → Health，与初始化相反的顺序），由 BattleManager 统一调</summary>
+    /// <summary>清理：把清理发给身上的组件（Skills → AutoPilot → Buffs → DeathEffect → Health，与初始化相反的顺序），由 BattleManager 统一调</summary>
     public void Clear()
     {
-        if (Attacker != null) Attacker.Clear();
+        if (Skills != null) Skills.Clear();
         if (Pilot != null) Pilot.Clear();
         if (Buffs != null) Buffs.Clear();
         if (deathEffect != null) deathEffect.Clear();
@@ -187,7 +188,7 @@ public class Entity : MonoBehaviour
     {
         if (Pilot == null) Pilot = GetComponent<AutoPilot>();
         if (Health == null) Health = GetComponent<Health>();
-        if (Attacker == null) Attacker = GetComponent<Attacker>();
+        if (Skills == null) Skills = GetComponent<SkillManager>();
         if (Buffs == null) Buffs = GetComponent<BuffManager>();
         if (deathEffect == null) deathEffect = GetComponent<DeathEffect>();
     }
@@ -197,8 +198,8 @@ public class Entity : MonoBehaviour
 }
 
 /// <summary>
-/// Entity.Init 需要的数据：只装 Entity 自己持有的那部分（身份 / 先攻 / 回合步数 / 管线类型 / 地图）。
-/// 生命值与阵营归 Health 持有，所以不在这里。
+/// Entity.Init 需要的数据：只装 Entity 自己持有的那部分（身份 / 先攻 / 回合步数 / 移动管线类型 / 地图）。
+/// 生命值与阵营归 Health 持有、技能归 SkillManager 的配置持有，所以都不在这里。
 /// </summary>
 [System.Serializable]
 public class EntityInitData
@@ -217,7 +218,4 @@ public class EntityInitData
 
     [Tooltip("移动管线类型（阶段一）：靠近 / 远离")]
     public TargetSourceType moveSource = TargetSourceType.ApproachNearestEnemy;
-
-    [Tooltip("攻击管线类型：近战 / 远程")]
-    public AttackType attackType = AttackType.Melee;
 }
