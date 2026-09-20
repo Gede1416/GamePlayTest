@@ -52,9 +52,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a8b16c453fdc47e191ba766d673b6c5e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  skillTypes:
-  - 0
-  - 3
+  skillTypes: 0300000000000000
   map: {fileID: 0}
 --- !u!114 &6128142298362892779
 MonoBehaviour:
@@ -102,6 +100,7 @@ MonoBehaviour:
   initiative: 44
   moveSteps: 4
   map: {fileID: 0}
+  uiPoint: {fileID: 0}
 --- !u!65 &4344170621544635797
 BoxCollider:
   m_ObjectHideFlags: 0

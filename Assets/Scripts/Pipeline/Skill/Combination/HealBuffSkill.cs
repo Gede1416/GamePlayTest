@@ -12,7 +12,7 @@ public class HealBuffSkill : ISkill
     const SkillType Name = SkillType.HealBuff;
 
     /// <summary>冷却回合数（≥ 1 顺带就是"每回合最多放一次"）</summary>
-    const int Cooldown = 1;
+    const int Cooldown = 5;
 
     readonly List<ICastCheck> castChecks = new()
     {
