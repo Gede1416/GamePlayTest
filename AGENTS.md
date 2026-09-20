@@ -52,7 +52,7 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 | `Pipeline/Skill/CastCheck/OnlyCastOnceCastCheck.cs` | **一场战斗只放一次**（例如加攻 buff）：**内部缓存技能名** + 第一次 `CanCast` 时记下施法者 id，收到 `SkillCastEvent` 两个都对上就标记"放过了"；**一场 = 一份技能**（每场按名单重建，标记跟着归零） | `OnlyCastOnceCastCheck(SkillType)`、`bool CanCast(caster)` |
 | `Pipeline/Skill/TargetFinder/MeleeTargetFinder.cs` / `RangedTargetFinder.cs` / `SelfTargetFinder.cs` | 阶段二：近战（范围 1 格、1 目标）/ 远程（范围 3 格、1 目标）/ 自己（目标就是自己，给上 buff 的技能用）；**都是无状态零件**——地图由 `TryFindTargets(caster, map)` 每次传进来，不存字段 | `MeleeTargetFinder.Range` / `TargetCount`、`RangedTargetFinder.Range` / `TargetCount`、`List<Entity> TryFindTargets(caster, map)`（没挑到返回空列表 / `null`） |
 | `Pipeline/Skill/SkillCaster/DamageCaster.cs` / `BuffCaster.cs` | 阶段三：扣血（走 `Entity.TakeDamage` 门面，`damage` 能被 buff 加减）/ 挂 buff（走 `Entity.AddBuff` 门面，挂哪种由构造函数带） | `DamageCaster(float damage)`、`AddDamage(float)`、`BuffCaster(BuffType)`、`bool Cast(caster, targets)` |
-| `Pipeline/Skill/Combination/MeleeSkill.cs` 等四个 | **一条技能 = 三段零件拼起来**：`castChecks`（判断，与）/ `targetFinders`（目标，或）/ `skillCasters`（释放，与）；技能名 / 伤害 / 冷却 / 挂哪种 buff 是这里的常量。四个组合：`MeleeSkill`（伤害 20、冷却 1）、`RangedSkill`（伤害 10、冷却 1）、`HealBuffSkill`（冷却 + 血量没满，两条判断的"与" + 挂 Heal）、`AttackBuffSkill`（活着 + 一场一次 + 挂 AddAttack） | `SkillType Type`、`CanCast` / `TryFindTargets(caster, map)` / `Cast`、`AddDamage(float)`（只有伤害零件认） |
+| `Pipeline/Skill/Combination/MeleeSkill.cs` 等五个 | **一条技能 = 三段零件拼起来**：`castChecks`（判断，与）/ `targetFinders`（目标，或）/ `skillCasters`（释放，与）；技能名 / 伤害 / 冷却 / 挂哪种 buff 是这里的常量。五个组合：`MeleeSkill`（伤害 20、冷却 1）、`RangedSkill`（伤害 10、冷却 1）、`HealBuffSkill`（冷却 + 血量没满，两条判断的"与" + 挂 Heal）、`AttackBuffSkill`（活着 + 一场一次 + 挂 AddAttack）、`MoveStepsBuffSkill`（活着 + 冷却 5 + 挂 AddMoveSteps） | `SkillType Type`、`CanCast` / `TryFindTargets(caster, map)` / `Cast`、`AddDamage(float)`（只有伤害零件认） |
 | `Pipeline/Skill/SkillManager.cs` | **技能管理器**（挂在实体上，`[RequireComponent(typeof(Entity))]`）：按预制体上的 `skillTypes`（**只有技能名**）调自己的 `CreateSkill` 造组合技能（技能名 → 组合技能的映射就在这里，`SkillType` 枚举也在本文件）；`RunPipeline()` 挨个跑 **判断 → 目标（地图从这儿给）→ 释放**，三段都过才算放成、并**发一条 `SkillCastEvent`（施法者 uuid + 技能名）**；**额度 / 冷却一行都不在这里**（归各技能的释放判断，它们收到消息自己记账）；含 `[ContextMenu]` 跑一次 / 打印技能 | `List<SkillType> skillTypes`（预制体上配）、`MapManager map`、`IReadOnlyList<ISkill> Skills`、`void Init()`（找 Entity + 造技能，由 `Entity.Init` 调）、`void Build()`（按配置重建）、`bool RunPipeline()`、`void AddDamage(float)`、`void Clear()` |
 
 ## 场景（Assets/Scenes/SampleScene.unity）
@@ -69,8 +69,8 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
 - 预制体（都在 `Assets/prefab/`，手工维护）：
   - `map1.prefab`：MeshFilter / MeshRenderer / MeshCollider + `MapManager`（`cellSize` 1；`spawnPoints` = [(1,1), (2,2)]；
     `entities` 是 2 个**空槽**——跨对象引用进不了预制体，由 `BattleManager` 运行时填）
-  - `Melee.prefab`：Entity(uuid 2, 先攻 44, moveSteps 4) + AutoPilot(靠近, speed 5) + SkillManager(skillTypes = [Melee, AttackBuff]) + Health(team 0, 50) + DeathEffect(fadeTime 0.6) + BuffManager
-  - `Ranger.prefab`：Entity(uuid 1, 先攻 10, moveSteps 3) + AutoPilot(远离, speed 5) + SkillManager(skillTypes = [Ranged, HealBuff]) + Health(team 1, 50) + DeathEffect(fadeTime 0.6) + BuffManager
+  - `Melee.prefab`：Entity(uuid 2, 先攻 44, moveSteps 4) + AutoPilot(靠近, speed 5) + SkillManager(skillTypes = [AttackBuff, Melee]) + Health(team 0, 50) + DeathEffect(fadeTime 0.6) + BuffManager
+  - `Ranger.prefab`：Entity(uuid 1, 先攻 10, moveSteps 3) + AutoPilot(远离, speed 5) + SkillManager(skillTypes = [HealBuff, Ranged, MoveStepsBuff]) + Health(team 1, 50) + DeathEffect(fadeTime 0.6) + BuffManager
   - `turn1.prefab`：`TurnManager`（`totalRounds` 5、`turnDelay` 0.2、**`autoStart` 关**——改由场景里的 `StartButton` 调 `BattleManager.StartBattle()` 开打；`actors` 也是 2 个空槽，由 `BattleManager` 填）
   - `HealthBar.prefab`：世界空间 Canvas（scale 0.01 → 1.0×0.12 世界单位）+ `Back` / `Fill` 两张 Image（内置 UISprite，白图染色）+ `HealthBar` 组件（`fill` 接前景、`fullWidth` 100）
   - `DamagePopup.prefab`：世界空间 Canvas（scale 0.01 → 1.2×0.4 世界单位）+ `Text (TMP)`（TMP 文字，40 号、居中、偏黄）+ `DamagePopup` 组件（`label` 接文字，上飘 1 / 存活 0.9 秒）
