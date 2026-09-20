@@ -55,3 +55,7 @@ sysinfo.txt
 # 本项目的临时/备份文件
 *.bak
 _*.py.tmp
+/Assets/Scenes/test.unity
+/Assets/Scenes/test.unity.meta
+/Assets/Scripts/NavTest.cs
+/Assets/Scripts/NavTest.cs.meta

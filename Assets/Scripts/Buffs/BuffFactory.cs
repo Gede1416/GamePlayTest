@@ -19,7 +19,7 @@ public enum BuffType
 public static class BuffFactory
 {
     // ---------- 每种 buff 的数值与持续回合（duration <= 0 = 永久） ----------
-    const float HealPerTurn = 10f;      // 每回合回多少血
+    const float HealPerTurn = 20f;      // 每回合回多少血
     const int HealTurns = 3;            // 回几回合
     const float MoveStepsBonus = 2f;    // 多加几格
     const int MoveStepsTurns = 3;

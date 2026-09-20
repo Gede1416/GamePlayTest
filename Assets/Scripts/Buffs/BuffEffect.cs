@@ -24,14 +24,20 @@ public interface IBuffEffect
 /// <summary>治疗：自己没有常驻加成，每次结算给目标回 value 点血</summary>
 public class HealEffect : IBuffEffect
 {
-    public void Apply(Entity target, BuffCfg cfg) { }
+    public void Apply(Entity target, BuffCfg cfg) { Heal(target, cfg); }
 
     /// <summary>结算一次回血（日志打出回完之后的血量，方便对上限截断）</summary>
     public void Tick(Entity target, BuffCfg cfg)
     {
+        Heal(target, cfg);
+    }
+
+    private void Heal(Entity target, BuffCfg cfg)
+    {
         target.Heal(cfg.value);
         Debug.Log($"[HealEffect] {target.name} 回血 {cfg.value}，现在 {target.Hp}/{target.MaxHp}", target);
     }
+
 
     public void Revert(Entity target, BuffCfg cfg) { }
 }
