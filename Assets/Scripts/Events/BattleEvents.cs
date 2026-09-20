@@ -2,8 +2,7 @@
 /// 战斗里收发的各种消息。每个消息就是一个只读数据类（类型本身就是"频道"），
 /// 加新消息只要在这里加一个类，EventPipeline 不用改。
 /// 现在的收发：TurnChangedEvent（回合刷新 + 推技能冷却）/ DamageEvent（伤害数字）/ HealthChangedEvent（血条）/
-/// EntityDiedEvent（放开格子 + 判胜负）/ EntitySpawnedEvent（挂血条）/ BuffChangedEvent（buff 条）/
-/// BattleEndedEvent（显示胜方）。
+/// EntityDiedEvent（放开格子 + 判胜负）/ EntitySpawnedEvent（挂血条）/ BattleEndedEvent（显示胜方）。
 /// </summary>
 
 /// <summary>回合刷新：进入第 round 回合（共 totalRounds 回合）</summary>
@@ -119,26 +118,6 @@ public class EntitySpawnedEvent
     #region 构造
 
     public EntitySpawnedEvent(Entity entity)
-    {
-        this.entity = entity;
-    }
-
-    #endregion
-}
-
-/// <summary>某个实体的 buff 有变化：挂上 / 到期移除 / 清场（buff 条收到后重新读一遍它的 buff 列表）</summary>
-public class BuffChangedEvent
-{
-    #region 属性
-
-    /// <summary>buff 变动的实体</summary>
-    public readonly Entity entity;
-
-    #endregion
-
-    #region 构造
-
-    public BuffChangedEvent(Entity entity)
     {
         this.entity = entity;
     }
