@@ -9,8 +9,6 @@ using UnityEngine;
 /// </summary>
 public class AddAttackBuff : IBuff
 {
-    #region 属性
-
     /// <summary>多加多少伤害</summary>
     const float AttackBonus = 5f;
 
@@ -34,18 +32,10 @@ public class AddAttackBuff : IBuff
     /// <summary>还剩几次结算（永久返回 -1）</summary>
     public int Left => Duration > 0 ? Mathf.Max(0, Duration - elapsed) : -1;
 
-    #endregion
-
-    #region 构造
-
     public AddAttackBuff(List<Entity> targets)
     {
         this.targets = targets;
     }
-
-    #endregion
-
-    #region 公开方法
 
     /// <summary>挂上：对每个目标跑一遍各零件的 Apply（伤害加成当场生效）</summary>
     public void Add()
@@ -78,6 +68,4 @@ public class AddAttackBuff : IBuff
             foreach (var effect in effects) effect.Revert(target);
         }
     }
-
-    #endregion
 }

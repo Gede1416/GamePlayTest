@@ -125,7 +125,7 @@ Built-in 下 MPB 是喂 GPU Instancing 逐实例数据的正道，但属性必�
 - `Health` 是 2D/3D 无关的，其余脚本的维度假设见上表。
 - 私有字段**不加下划线前缀**（`routine` / `cells` / `mapManager`，不是 `_routine`）。
 - **属性标签横排一行**：同一个字段上的多个特性写在同一行，例如 `[Tooltip("技能类型：近战 / 远程 / 施放 buff")] public SkillType type = SkillType.Melee;`（`[Header(...)]` 也照样接在同一行）。
-- **代码分块用 `#region` / `#endregion`**：每个类里四段各一个 region（`属性` / `生命周期` / `公开方法` / `私有方法`），构造函数单独一个 `构造` region；`公开方法` 内部的语义子块（`查询` / `移动裁决` / `寻路` / `自检`）用**嵌套** region；region 与它包住的成员同缩进。方法体内部的注释块仍用 `// ---------- xxx ----------`（方法里不套 region）。只有一组公开静态方法的工厂类（`*PipelineFactory`）不用分块。
+- **代码分块用 `#region` / `#endregion`**：每个类里四段各一个 region（`属性` / `生命周期` / `公开方法` / `私有方法`），构造函数单独一个 `构造` region；`公开方法` 内部的语义子块（`查询` / `移动裁决` / `寻路` / `自检`）用**嵌套** region；region 与它包住的成员同缩进。**类不到 80 行就不分块**（成员照四段顺序直接写下来，套 region 反而更花）；只有一组公开静态方法的工厂类（`*PipelineFactory`）也不用分块。方法体内部的注释块仍用 `// ---------- xxx ----------`（方法里不套 region）。
 - **事件走泛型 `EventPipeline`**：`Subscribe<T>(处理函数)` / `Unsubscribe<T>(...)` / `Send(new XxxEvent(...))`，按类型分发（`Dictionary<Type, Delegate>`），**加新事件只要在 `BattleEvents.cs` 加一个数据类，管线本身一行都不用改**。现在的收发关系：
   - `TurnChangedEvent`（TurnManager 每回合开头发）：BattleUIManager 刷回合数 + 各技能的 `CooldownCastCheck` 冷却减一
   - `DamageEvent`（Health.TakeDamage）/ `HealthChangedEvent`（Health.Init / TakeDamage）：UI 飘伤害数字 / 血条刷新

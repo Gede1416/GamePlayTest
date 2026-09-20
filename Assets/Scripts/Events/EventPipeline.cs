@@ -8,14 +8,8 @@ using System.Collections.Generic;
 /// </summary>
 public static class EventPipeline
 {
-    #region 属性
-
     // 事件类型 -> 该类型的处理链（multicast delegate）
     static readonly Dictionary<Type, Delegate> handlers = new();
-
-    #endregion
-
-    #region 公开方法
 
     /// <summary>发消息：这个类型没有订阅者就什么都不做</summary>
     public static void Send<T>(T e)
@@ -44,6 +38,4 @@ public static class EventPipeline
 
     /// <summary>清掉全部订阅（清场时调）</summary>
     public static void Clear() => handlers.Clear();
-
-    #endregion
 }

@@ -6,8 +6,6 @@ using UnityEngine;
 /// </summary>
 public static class PrefabLoader
 {
-    #region 公开方法
-
     /// <summary>按路径加载预制体；加载不到会报错并返回 null</summary>
     public static GameObject Load(string path)
     {
@@ -22,6 +20,4 @@ public static class PrefabLoader
 
         return go;
     }
-
-    #endregion
 }

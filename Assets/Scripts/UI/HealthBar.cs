@@ -9,8 +9,6 @@ using UnityEngine.UI;
 /// </summary>
 public class HealthBar : MonoBehaviour
 {
-    #region 属性
-
     [Tooltip("前景条：按血量比例改宽度（预制体里接好）")]
     [SerializeField] Image fill;
 
@@ -20,10 +18,6 @@ public class HealthBar : MonoBehaviour
     Entity target;          // 跟着谁（生命值读它 / 生命变化消息按它过滤）
     Transform anchor;       // 挂在哪（实体的 UI 点位）
 
-    #endregion
-
-    #region 生命周期
-
     // 每帧贴住 UI 点位并转向相机（LateUpdate 里做，保证实体这一帧已经动完）
     void LateUpdate()
     {
@@ -32,10 +26,6 @@ public class HealthBar : MonoBehaviour
         var cam = Camera.main;
         if (cam != null) transform.rotation = cam.transform.rotation;
     }
-
-    #endregion
-
-    #region 公开方法
 
     /// <summary>初始化：记下跟谁、订生命变化消息、按当前血量摆好条子（由 BattleUIManager 实例化后调）</summary>
     public void Init(Entity entity)
@@ -53,10 +43,6 @@ public class HealthBar : MonoBehaviour
     /// <summary>清理：退订（条子本身由 BattleUIManager 销毁）</summary>
     public void Clear() => EventPipeline.Unsubscribe<HealthChangedEvent>(OnHealthChanged);
 
-    #endregion
-
-    #region 私有方法
-
     /// <summary>收到生命变化：只认自己跟的那个实体</summary>
     void OnHealthChanged(HealthChangedEvent e)
     {
@@ -72,6 +58,4 @@ public class HealthBar : MonoBehaviour
         var rect = fill.rectTransform;
         rect.sizeDelta = new Vector2(fullWidth * Mathf.Clamp01(ratio), rect.sizeDelta.y);
     }
-
-    #endregion
 }

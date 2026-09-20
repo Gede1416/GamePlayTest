@@ -7,22 +7,12 @@
 /// </summary>
 public class OnlyCastOnceCastCheck : ICastCheck
 {
-    #region 属性
-
     readonly SkillType skillType;    // 认自己那条技能：取使用次数时的 key
-
-    #endregion
-
-    #region 构造
 
     public OnlyCastOnceCastCheck(SkillType skillType)
     {
         this.skillType = skillType;
     }
-
-    #endregion
-
-    #region 公开方法
 
     /// <summary>能不能放：这条技能这场还没放成过</summary>
     public bool CanCast(Entity caster)
@@ -30,6 +20,4 @@ public class OnlyCastOnceCastCheck : ICastCheck
         if (caster == null || caster.Skills == null) return false;
         return caster.Skills.UsedCount(skillType) <= 0;
     }
-
-    #endregion
 }

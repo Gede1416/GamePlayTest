@@ -4,25 +4,15 @@ using UnityEngine;
 /// <summary>Buff 类技能的释放：给每个目标挂一条 buff（挂哪种由构造函数带）</summary>
 public class BuffCaster : ISkillCaster
 {
-    #region 属性
-
     readonly BuffType buff;
 
     /// <summary>使用次数缓存：这个零件放成过几次（放成一次 +1）</summary>
     public int UsedCount { get; private set; }
 
-    #endregion
-
-    #region 构造
-
     public BuffCaster(BuffType buff)
     {
         this.buff = buff;
     }
-
-    #endregion
-
-    #region 公开方法
 
     /// <summary>对每个目标挂 buff（走 Entity.AddBuff 门面，目标自己的 BuffManager 收下来）</summary>
     public bool Cast(Entity caster, List<Entity> targets)
@@ -36,6 +26,4 @@ public class BuffCaster : ISkillCaster
         Debug.Log($"[BuffCaster] {caster.name} 放下 {buff}");
         return true;
     }
-
-    #endregion
 }

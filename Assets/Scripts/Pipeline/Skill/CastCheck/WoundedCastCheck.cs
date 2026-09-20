@@ -6,14 +6,10 @@
 /// </summary>
 public class WoundedCastCheck : ICastCheck
 {
-    #region 公开方法
-
     /// <summary>能不能放：自己的血量小于上限（没挂 Health 时 HP / MaxHP 都是 0，判断为不放）</summary>
     public bool CanCast(Entity caster)
     {
         if (caster == null) return false;
         return caster.Hp < caster.MaxHp;
     }
-
-    #endregion
 }

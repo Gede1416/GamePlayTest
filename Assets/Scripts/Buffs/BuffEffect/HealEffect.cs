@@ -3,22 +3,12 @@ using UnityEngine;
 /// <summary>治疗：自己没有常驻加成，挂上与每次结算都按 amount 回一次血（回多少由构造函数带）</summary>
 public class HealEffect : IBuffEffect
 {
-    #region 属性
-
     readonly float amount;
-
-    #endregion
-
-    #region 构造
 
     public HealEffect(float amount)
     {
         this.amount = amount;
     }
-
-    #endregion
-
-    #region 公开方法
 
     /// <summary>挂上：也回一次（和原来一样，挂上当场就见效一次）</summary>
     public void Apply(Entity target) => Heal(target);
@@ -29,10 +19,6 @@ public class HealEffect : IBuffEffect
     /// <summary>移除：治疗没有常驻加成，不用撤什么</summary>
     public void Revert(Entity target) { }
 
-    #endregion
-
-    #region 私有方法
-
     /// <summary>回一次血（日志打出回完之后的血量，方便对上限截断）</summary>
     void Heal(Entity target)
     {
@@ -41,6 +27,4 @@ public class HealEffect : IBuffEffect
         target.Heal(amount);
         Debug.Log($"[HealEffect] {target.name} 回血 {amount}，现在 {target.Hp}/{target.MaxHp}", target);
     }
-
-    #endregion
 }

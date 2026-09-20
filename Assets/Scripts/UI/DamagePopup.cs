@@ -9,8 +9,6 @@ using UnityEngine;
 /// </summary>
 public class DamagePopup : MonoBehaviour
 {
-    #region 属性
-
     [Tooltip("数字文字（预制体里接好，TMP）")]
     [SerializeField] TMP_Text label;
 
@@ -26,10 +24,6 @@ public class DamagePopup : MonoBehaviour
     float age;
     Vector3 start;
 
-    #endregion
-
-    #region 生命周期
-
     void Update()
     {
         age += Time.deltaTime;
@@ -44,10 +38,6 @@ public class DamagePopup : MonoBehaviour
         if (t >= 1f) Destroy(gameObject);
     }
 
-    #endregion
-
-    #region 公开方法
-
     /// <summary>初始化：写数字 + 记下起点（由 BattleUIManager 实例化后调）</summary>
     public void Init(float amount)
     {
@@ -56,6 +46,4 @@ public class DamagePopup : MonoBehaviour
         start = new Vector3(0f, startHeight, 0f);
         transform.localPosition = start;
     }
-
-    #endregion
 }

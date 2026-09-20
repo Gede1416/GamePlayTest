@@ -10,17 +10,11 @@
 /// </summary>
 public class CooldownCastCheck : ICastCheck
 {
-    #region 属性
-
     readonly SkillType skillType;    // 认自己那条技能：取使用次数时的 key
     readonly int cooldown;
 
     int cooldownLeft;
     int seenUsed;                    // 上次看到的使用次数
-
-    #endregion
-
-    #region 构造
 
     public CooldownCastCheck(SkillType skillType, int cooldown = 0)
     {
@@ -30,10 +24,6 @@ public class CooldownCastCheck : ICastCheck
         EventPipeline.Subscribe<TurnChangedEvent>(OnTurnChanged);
     }
 
-    #endregion
-
-    #region 公开方法
-
     /// <summary>能不能放：施法者活着 且 冷却已经好了（顺手把"刚放成过"这笔账记上）</summary>
     public bool CanCast(Entity caster)
     {
@@ -42,10 +32,6 @@ public class CooldownCastCheck : ICastCheck
         NoteUsed(caster);
         return cooldownLeft <= 0;
     }
-
-    #endregion
-
-    #region 私有方法
 
     /// <summary>使用次数比上次多 = 刚放成，进冷却（次数缓存在阶段三的零件里，判断只能这么问）</summary>
     void NoteUsed(Entity caster)
@@ -62,6 +48,4 @@ public class CooldownCastCheck : ICastCheck
     {
         if (cooldownLeft > 0) cooldownLeft--;
     }
-
-    #endregion
 }

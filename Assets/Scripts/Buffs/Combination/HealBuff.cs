@@ -9,8 +9,6 @@ using UnityEngine;
 /// </summary>
 public class HealBuff : IBuff
 {
-    #region 属性
-
     /// <summary>每次结算回多少血</summary>
     const float HealPerTurn = 20f;
 
@@ -34,18 +32,10 @@ public class HealBuff : IBuff
     /// <summary>还剩几次结算（永久返回 -1）</summary>
     public int Left => Duration > 0 ? Mathf.Max(0, Duration - elapsed) : -1;
 
-    #endregion
-
-    #region 构造
-
     public HealBuff(List<Entity> targets)
     {
         this.targets = targets;
     }
-
-    #endregion
-
-    #region 公开方法
 
     /// <summary>挂上：对每个目标跑一遍各零件的 Apply（治疗的 Apply 就是先回一次血）</summary>
     public void Add()
@@ -78,6 +68,4 @@ public class HealBuff : IBuff
             foreach (var effect in effects) effect.Revert(target);
         }
     }
-
-    #endregion
 }
