@@ -35,7 +35,7 @@ public class CooldownCastCheck : ICastCheck
     #region 公开方法
 
     /// <summary>能不能放：施法者活着 且 冷却已经好了（顺手把"刚放成过"这笔账记上）</summary>
-    public virtual bool CanCast(Entity caster)
+    public bool CanCast(Entity caster)
     {
         if (caster == null || caster.Health == null || caster.Health.IsDead) return false;
 

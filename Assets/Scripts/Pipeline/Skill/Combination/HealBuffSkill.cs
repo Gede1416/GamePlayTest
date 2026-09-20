@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 /// <summary>
 /// 治疗技能：给自己挂一条 Heal buff（回血是 buff 每回合结算的，技能本身不直接回血）。
-/// 释放判断：**血量没满才放**（满血时治疗没意义）+ 冷却 1（顺带就是"每回合最多放一次"，别一回合叠好几条）。
+/// 释放判断是**两条检查的"与"**：冷却 1（顺带管活着，也顺带就是"每回合最多放一次"，别一回合叠好几条）+ **血量没满**。
 /// 目标就是自己，所以阶段二用 SelfTargetFinder。
 /// 成员顺序：属性 → 公开方法。
 /// </summary>
@@ -21,7 +21,8 @@ public class HealBuffSkill : ISkill
 
     readonly List<ICastCheck> castChecks = new()
     {
-        new WoundedCastCheck(Name, Cooldown),       // 活着 + 冷却好了 + 自己血量没满
+        new CooldownCastCheck(Name, Cooldown),      // 活着 + 冷却好了
+        new WoundedCastCheck(),                     // 自己血量没满（两条判断是"与"）
     };
 
     readonly List<ITargetFinder> targetFinders = new()
