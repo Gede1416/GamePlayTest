@@ -15,7 +15,8 @@ public class BattleManager : MonoBehaviour
 {
     #region 属性
 
-    [Header("预制体路径（先按文件名走 Resources，编辑器里再按资源路径加载）")][Tooltip("地图预制体：里面挂着 MapManager 与各实体的初始位置列表")]
+    [Header("预制体路径（先按文件名走 Resources，编辑器里再按资源路径加载）")]
+    [Tooltip("地图预制体：里面挂着 MapManager 与各实体的初始位置列表")]
     [SerializeField] string mapPath;
 
     [Tooltip("回合控制器预制体：里面有回合数 / 行动间隔 / autoStart")]
@@ -138,7 +139,7 @@ public class BattleManager : MonoBehaviour
             entities.Add(entity);
         }
 
-        mapManager.entities = entities.ConvertAll(e => e.gameObject);   // 顺序对应 spawnPoints
+        mapManager.entities = entities.ConvertAll(e => e);   // 顺序对应 spawnPoints
 
         // ---------- 回合 ----------
 

@@ -25,8 +25,9 @@ public class MapManager : MonoBehaviour
     /// <summary>格子被占住、但占用者没有登记 uuid（没挂 Entity 或 uuid <= 0）</summary>
     public const int Unknown = -1;
 
-    [Header("实体")][Tooltip("实体列表（顺序与初始位置列表一一对应）")]
-    public List<GameObject> entities = new();
+    [Header("实体")]
+    [Tooltip("实体列表（顺序与初始位置列表一一对应）")]
+    public List<Entity> entities = new();
 
     [Tooltip("初始位置列表（格子坐标），与实体列表一一对应")]
     public List<Vector2Int> spawnPoints = new();
@@ -185,7 +186,7 @@ public class MapManager : MonoBehaviour
         int id = UuidAt(cell);
         if (id == entity.Uuid || id == Unknown) SetUuid(cell, Empty);
 
-        entities.Remove(entity.gameObject);
+        entities.Remove(entity);
     }
 
     #region 查询

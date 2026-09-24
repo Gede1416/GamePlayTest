@@ -2,6 +2,16 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+/// <summary>阶段一（获得目标点）可选哪几种实现——工厂按这个枚举造接口，Inspector 里直接选。</summary>
+public enum TargetSourceType
+{
+    /// <summary>靠近：走向距离最近的非己方单位</summary>
+    ApproachNearestEnemy = 0,
+
+    /// <summary>远离：躲开距离最近的非己方单位</summary>
+    FleeNearestEnemy = 1,
+}
+
 /// <summary>
 /// 自动寻路管线编排（挂在实体上），三段可替换：
 /// 阶段一 获得目标点（ITargetSource）-> 阶段二 构建行动路径（IPathPlanner）-> 阶段三 执行路径（IPathExecutor）。
@@ -30,13 +40,13 @@ public class AutoPilot : MonoBehaviour
     int stepsThisTurn;      // 本回合可走步数（0 = 不限）
 
     /// <summary>阶段一：获得目标点</summary>
-    public ITargetSource TargetSource { get; set; }
+    private ITargetSource _targetSource;
 
     /// <summary>阶段二：构建行动路径</summary>
-    public IPathPlanner Planner { get; set; }
+    private IPathPlanner _planner;
 
     /// <summary>阶段三：执行路径</summary>
-    public IPathExecutor Executor { get; set; }
+    private IPathExecutor _executor;
 
     /// <summary>是否正在走（动画中，输入被阻断）</summary>
     public bool IsFollowing => routine != null;
@@ -89,33 +99,34 @@ public class AutoPilot : MonoBehaviour
     /// <summary>按当前枚举装配三段（工厂造接口，这里只负责装上；也可以外部塞别的实现进来）</summary>
     public void Build()
     {
-        PathPipelineFactory.Wire(this, targetSourceType, map, transform, Team, () => stepsThisTurn, speed);
+        switch (targetSourceType)
+        {
+            case TargetSourceType.ApproachNearestEnemy:
+                _targetSource = new ApproachNearestEnemy(map, transform, health.team);
+                _planner = new BfsPathPlanner(map);
+                _executor = new MoverPathExecutor(map, transform, speed);
+                break;
+            case TargetSourceType.FleeNearestEnemy:
+                _targetSource = new FleeNearestEnemy(map, transform, health.team, stepsThisTurn);
+                _planner = new BfsPathPlanner(map);
+                _executor = new MoverPathExecutor(map, transform, speed);
+                break;
+        }
     }
 
     /// <summary>完整管线：阶段一 -> 阶段二 -> 阶段三</summary>
     public bool RunPipeline()
     {
-        if (TargetSource == null || !TargetSource.TryGetTarget(out var goal)) return false;
-        return MoveTo(goal);
-    }
+        bool pas1 = !_targetSource.TryGetTarget(out var goal);
+        if (pas1) return false;
 
-    /// <summary>阶段二 + 阶段三：指定目标格，构建路径并出发</summary>
-    public bool MoveTo(Vector2Int target)
-    {
-        Clear();                                            // 先清理上一次的移动
-        if (map == null || Planner == null || Executor == null) return false;
-
+        Clear();
         var start = map.WorldToCell(transform.position);
-        if (!Planner.TryBuild(start, target, path)) return false;
+        bool pas2 = !_planner.TryBuild(start, goal, path);
+        if (pas2) return false;
 
         routine = StartCoroutine(Follow());
         return true;
-    }
-
-    /// <summary>阶段二 + 阶段三：指定目标点（世界坐标）</summary>
-    public bool MoveTo(Vector3 target)
-    {
-        return map != null && MoveTo(map.WorldToCell(target));
     }
 
     /// <summary>清理：停下正在走的协程，让地图数据跟坐标对齐，并清空路径（由 Entity.Clear 调）</summary>
@@ -144,7 +155,7 @@ public class AutoPilot : MonoBehaviour
     /// <summary>阶段三的包装：执行完把状态收回来（执行器只管走路，不用操心 AutoPilot 的状态）</summary>
     IEnumerator Follow()
     {
-        yield return Executor.Run(path);
+        yield return _executor.Run(path);
         routine = null;
     }
 
