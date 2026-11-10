@@ -1,0 +1,1 @@
+{"name": "ToLua.Editor", "references": ["FairyGUI"], "includePlatforms": ["Editor"]}

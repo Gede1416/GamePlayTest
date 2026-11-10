@@ -1,0 +1,9 @@
+<component size="370,48" extention="Button">
+  <controller name="button" pages="0,up,1,down,2,over,3,selectedOver" selected="0"/>
+  <displayList>
+    <graph id="bg" name="bg" xy="0,0" size="370,48" type="rect" lineSize="0" fillColor="#ff344b68"><relation target="" sidePair="width-width,height-height"/></graph>
+    <graph id="selected" name="selected" xy="0,0" size="370,48" type="rect" lineSize="0" fillColor="#ff276f91"><gearDisplay controller="button" pages="1,3"/><relation target="" sidePair="width-width,height-height"/></graph>
+    <text id="title" name="title" xy="16,12" size="338,26" fontSize="20" color="#ffffff" autoSize="none"><relation target="" sidePair="width-width"/></text>
+  </displayList>
+  <Button mode="Radio"/>
+</component>

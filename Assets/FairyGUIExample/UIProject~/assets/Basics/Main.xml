@@ -1,0 +1,18 @@
+<component size="1136,640" overflow="hidden">
+  <displayList>
+    <graph id="bg" name="background" xy="0,0" size="1136,640" type="rect" lineSize="0" fillColor="#ff172235"/>
+    <text id="heading" name="heading" xy="40,24" size="1000,42" fontSize="30" color="#ffffff" text="FairyGUI 控件交互示例"/>
+    <text id="hint" name="hint" xy="40,78" size="1000,28" fontSize="18" color="#aebfd8" text="滚轮浏览列表 · 选择类别 · 点击条目查看详情"/>
+    <graph id="left" name="leftPanel" xy="32,126" size="420,466" type="rect" lineSize="0" fillColor="#ff25354c"/>
+    <list id="items" name="items" xy="48,142" size="388,434" overflow="scroll" scroll="vertical" lineGap="8" defaultItem="ui://9leh0eyfdemoRow"/>
+    <text id="categoryLabel" name="categoryLabel" xy="500,142" size="180,28" fontSize="20" color="#ffffff" text="下拉框 / 类别"/>
+    <component id="category" name="category" src="rt103t" xy="500,180" size="250,32">
+      <ComboBox><item title="全部"/><item title="装备"/><item title="消耗品"/></ComboBox>
+    </component>
+    <component id="showImage" name="showImage" src="rpmb18" xy="790,186" size="230,24"><Button title="显示图片（Toggle）" checked="true"/></component>
+    <loader id="preview" name="preview" xy="500,250" size="128,128" fill="scale" url="Cooldown/k0"/>
+    <text id="details" name="details" xy="660,250" size="400,150" fontSize="22" color="#e1eaff" autoSize="none" text="请选择列表条目"/>
+    <component id="submit" name="submit" src="rpmbz" xy="500,432" size="180,48"><Button title="确认选择"/></component>
+    <text id="status" name="status" xy="500,510" size="570,76" fontSize="18" color="#7edec8" autoSize="none" text="等待操作"/>
+  </displayList>
+</component>
