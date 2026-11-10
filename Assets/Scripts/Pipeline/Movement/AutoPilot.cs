@@ -102,7 +102,7 @@ public class AutoPilot : MonoBehaviour
         switch (targetSourceType)
         {
             case TargetSourceType.ApproachNearestEnemy:
-                _targetSource = new ApproachNearestEnemy(map, transform, health.team);
+                _targetSource = new ApproachNearestEnemy(map, transform, health.team, stepsThisTurn);
                 _planner = new BfsPathPlanner(map);
                 _executor = new MoverPathExecutor(map, transform, speed);
                 break;

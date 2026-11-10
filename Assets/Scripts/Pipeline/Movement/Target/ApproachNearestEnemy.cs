@@ -57,7 +57,7 @@ public class ApproachNearestEnemy : ITargetSource
             nearest = d;
             cell = spot;
         }
-        int steps = Mathf.Abs(cell.x - selfCell.x) + stepsLeft
+        int steps = Mathf.Abs(cell.x - selfCell.x) + stepsLeft;
 
         return nearest != int.MaxValue;
     }
