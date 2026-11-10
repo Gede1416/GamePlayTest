@@ -1,0 +1,9 @@
+{
+    "name": "ReGoap.Editor",
+    "references": [
+        "ReGoap"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ]
+}
