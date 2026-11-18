@@ -8,7 +8,6 @@ public class BoidFlock
     const float SeparationRadius = 0.9f;
 
     readonly BoidAgent[] agents;
-    readonly Vector3[] accelerations;
 
     public float SeparationWeight { get; set; }
     public float AlignmentWeight { get; set; }
@@ -18,16 +17,15 @@ public class BoidFlock
     public BoidFlock(BoidAgent[] agents)
     {
         this.agents = agents;
-        accelerations = new Vector3[agents.Length];
     }
 
     public void Step(Vector3? target, float deltaTime, Vector2 halfExtents)
     {
         for (int i = 0; i < agents.Length; i++)
-            accelerations[i] = Steering(agents[i], target);
+            agents[i].SetAcceleration(Steering(agents[i], target));
 
         for (int i = 0; i < agents.Length; i++)
-            agents[i].Move(accelerations[i], deltaTime, halfExtents);
+            agents[i].Move(deltaTime, halfExtents);
     }
 
     Vector3 Steering(BoidAgent agent, Vector3? target)

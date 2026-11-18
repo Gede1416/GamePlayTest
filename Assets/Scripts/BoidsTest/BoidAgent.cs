@@ -6,6 +6,7 @@ public class BoidAgent
     public const float MaxSpeed = 4f;
 
     readonly Transform view;
+    Vector3 acceleration;
 
     public Vector3 Position { get; private set; }
     public Vector3 Velocity { get; private set; }
@@ -18,7 +19,12 @@ public class BoidAgent
         view.SetPositionAndRotation(position, heading);
     }
 
-    public void Move(Vector3 acceleration, float deltaTime, Vector2 halfExtents)
+    public void SetAcceleration(Vector3 acceleration)
+    {
+        this.acceleration = acceleration;
+    }
+
+    public void Move(float deltaTime, Vector2 halfExtents)
     {
         Vector3 velocity = Vector3.ClampMagnitude(Velocity + acceleration * deltaTime, MaxSpeed);
         Vector3 position = Position + velocity * deltaTime;
