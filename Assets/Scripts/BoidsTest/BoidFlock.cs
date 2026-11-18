@@ -12,23 +12,30 @@ public class BoidFlock
     public float SeparationWeight { get; set; }
     public float AlignmentWeight { get; set; }
     public float CohesionWeight { get; set; }
-    public float MouseWeight { get; set; }
+    public float FormationFollowWeight { get; set; }
 
     public BoidFlock(BoidAgent[] agents)
     {
         this.agents = agents;
     }
 
-    public void Step(Vector3? target, float deltaTime, Vector2 halfExtents)
+    public void SetRotationParameters(float turnSpeed, float rotationDeadZone, float minHeadingSpeed,
+        float formationFacingBias)
     {
         for (int i = 0; i < agents.Length; i++)
-            agents[i].SetAcceleration(Steering(agents[i], target));
-
-        for (int i = 0; i < agents.Length; i++)
-            agents[i].Move(deltaTime, halfExtents);
+            agents[i].SetRotationParameters(turnSpeed, rotationDeadZone, minHeadingSpeed, formationFacingBias);
     }
 
-    Vector3 Steering(BoidAgent agent, Vector3? target)
+    public void Step(float deltaTime, BoidFormation formation)
+    {
+        for (int i = 0; i < agents.Length; i++)
+            agents[i].SetAcceleration(Steering(agents[i], formation));
+
+        for (int i = 0; i < agents.Length; i++)
+            agents[i].Move(deltaTime, formation);
+    }
+
+    Vector3 Steering(BoidAgent agent, BoidFormation formation)
     {
         Vector3 separation = Vector3.zero; // 分离量
         Vector3 velocitySum = Vector3.zero; // 速度量
@@ -55,11 +62,8 @@ public class BoidFlock
             force += (velocitySum / neighbors - agent.Velocity) * AlignmentWeight;
             force += offsetSum / neighbors * CohesionWeight;
         }
-        if (target.HasValue)
-        {
-            Vector3 desiredVelocity = Vector3.ClampMagnitude(target.Value - agent.Position, BoidAgent.MaxSpeed);
-            force += (desiredVelocity - agent.Velocity) * MouseWeight;
-        }
+        force += (formation.Velocity - agent.Velocity) * FormationFollowWeight;
+        force += formation.GetReturnAcceleration(agent.Position, agent.Velocity);
         return Vector3.ClampMagnitude(force, MaxAcceleration);
     }
 }

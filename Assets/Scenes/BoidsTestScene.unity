@@ -357,7 +357,17 @@ MonoBehaviour:
   separationWeight: 3
   alignmentWeight: 1
   cohesionWeight: 0.8
-  mouseWeight: 1.6
+  formationFollowWeight: 1.6
+  formationBoundsType: 1
+  formationSize: {x: 8, y: 5}
+  formationSpeed: 3
+  formationTurnSpeed: 120
+  formationRotationDeadZone: 3
+  formationMinHeadingSpeed: 0.2
+  agentTurnSpeed: 180
+  agentRotationDeadZone: 3
+  agentMinHeadingSpeed: 0.2
+  formationFacingBias: 0.86306405
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
