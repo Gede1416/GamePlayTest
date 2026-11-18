@@ -11,12 +11,18 @@ public sealed class ReGoapTestAgent : IReGoapAgent<string, object>, IReGoapMemor
     readonly List<IReGoapGoal<string, object>> goals = new List<IReGoapGoal<string, object>>();
     readonly List<TestAction> ownedActions = new List<TestAction>();
     readonly Dictionary<string, object> planValues = new Dictionary<string, object>();
-    readonly TestGoal goal = new TestGoal();
+    readonly TestGoal goal;
     IReGoapGoal<string, object> currentGoal;
 
     public ReGoapState<string, object> World { get; } = ReGoapState<string, object>.Instantiate();
 
-    public ReGoapTestAgent(bool weaponAvailable)
+    internal ReGoapTestAgent(string goalName, string goalFact)
+    {
+        goal = new TestGoal(goalName, goalFact);
+        goals.Add(goal);
+    }
+
+    public ReGoapTestAgent(bool weaponAvailable) : this("Defeat enemy", "enemyDead")
     {
         World.Set("weaponAvailable", weaponAvailable);
         World.Set("hasWeapon", false);
@@ -27,7 +33,6 @@ public sealed class ReGoapTestAgent : IReGoapAgent<string, object>, IReGoapMemor
         AddAction("Sword attack", 1, new[] { "nearEnemy", "hasWeapon" }, "enemyDead");
         AddAction("Approach enemy", 1, new string[0], "nearEnemy");
         AddAction("Take weapon", 1, new[] { "weaponAvailable" }, "hasWeapon");
-        goals.Add(goal);
     }
 
     public IReGoapGoal<string, object> Plan()
@@ -56,7 +61,7 @@ public sealed class ReGoapTestAgent : IReGoapAgent<string, object>, IReGoapMemor
     public List<IReGoapAction<string, object>> GetActionsSet() => actions;
     public ReGoapState<string, object> InstantiateNewState() => ReGoapState<string, object>.Instantiate();
 
-    void AddAction(string name, float cost, string[] required, string effect)
+    internal void AddAction(string name, float cost, string[] required, string effect)
     {
         var action = new TestAction(name, cost, required, effect);
         actions.Add(action);
@@ -68,10 +73,15 @@ public sealed class ReGoapTestAgent : IReGoapAgent<string, object>, IReGoapMemor
         Queue<ReGoapActionState<string, object>> plan;
         public readonly ReGoapState<string, object> State = ReGoapState<string, object>.Instantiate();
 
-        public TestGoal() { State.Set("enemyDead", true); }
+        readonly string name;
+        public TestGoal(string name, string fact)
+        {
+            this.name = name;
+            State.Set(fact, true);
+        }
         public void Run(Action<IReGoapGoal<string, object>> callback) { }
         public Queue<ReGoapActionState<string, object>> GetPlan() => plan;
-        public string GetName() => "Defeat enemy";
+        public string GetName() => name;
         public void Precalculations(IGoapPlanner<string, object> goapPlanner) { }
         public bool IsGoalPossible() => true;
         public ReGoapState<string, object> GetGoalState() => State;
