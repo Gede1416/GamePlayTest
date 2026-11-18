@@ -9,6 +9,9 @@ public class BoidAgent
     readonly Transform view;
     Vector3 acceleration;
     float speedLimit = MaxSpeed;
+    float alertRange;
+    float attackRange;
+    float attackWeight;
     float formationFacingBias = 0.65f;
     float minHeadingSpeed = 0.2f;
     float rotationDeadZone = 3f;
@@ -37,6 +40,29 @@ public class BoidAgent
         this.rotationDeadZone = Mathf.Clamp(rotationDeadZone, 0, 180);
         this.minHeadingSpeed = Mathf.Max(0, minHeadingSpeed);
         this.formationFacingBias = Mathf.Clamp01(formationFacingBias);
+    }
+
+    public void SetAttackParameters(float alertRange, float attackRange, float attackWeight)
+    {
+        this.alertRange = Mathf.Max(0, alertRange);
+        this.attackRange = Mathf.Clamp(attackRange, 0, this.alertRange);
+        this.attackWeight = Mathf.Max(0, attackWeight);
+    }
+
+    public Vector3 GetAttackAcceleration(Vector3? enemyPosition)
+    {
+        if (!enemyPosition.HasValue) return Vector3.zero;
+        Vector3 offset = enemyPosition.Value - Position;
+        offset.y = 0;
+        float distanceSq = offset.sqrMagnitude;
+        if (distanceSq > alertRange * alertRange || distanceSq <= attackRange * attackRange)
+            return Vector3.zero;
+
+        float distance = Mathf.Sqrt(distanceSq);
+        // 靠近攻击范围时减速，避免始终向敌人中心冲刺。
+        float speed = Mathf.Min(MaxSpeed, (distance - attackRange) * 4f);
+        Vector3 desiredVelocity = offset / distance * speed;
+        return (desiredVelocity - Velocity) * attackWeight;
     }
 
     public void Move(float deltaTime, BoidFormation formation)

@@ -19,6 +19,14 @@ public class BoidFlock
         this.agents = agents;
     }
 
+    public void SetAttackParameters(float alertRange, float attackRange, float attackWeight)
+    {
+        // 攻击权重始终低于阵型追随权重，关闭追随时也关闭主动追敌。
+        float weight = Mathf.Clamp(attackWeight, 0, Mathf.Max(0, FormationFollowWeight) * 0.9f);
+        for (int i = 0; i < agents.Length; i++)
+            agents[i].SetAttackParameters(alertRange, attackRange, weight);
+    }
+
     public void SetRotationParameters(float turnSpeed, float rotationDeadZone, float minHeadingSpeed,
         float formationFacingBias)
     {
@@ -26,16 +34,16 @@ public class BoidFlock
             agents[i].SetRotationParameters(turnSpeed, rotationDeadZone, minHeadingSpeed, formationFacingBias);
     }
 
-    public void Step(float deltaTime, BoidFormation formation)
+    public void Step(float deltaTime, BoidFormation formation, Vector3? enemyPosition = null)
     {
         for (int i = 0; i < agents.Length; i++)
-            agents[i].SetAcceleration(Steering(agents[i], formation));
+            agents[i].SetAcceleration(Steering(agents[i], formation, enemyPosition));
 
         for (int i = 0; i < agents.Length; i++)
             agents[i].Move(deltaTime, formation);
     }
 
-    Vector3 Steering(BoidAgent agent, BoidFormation formation)
+    Vector3 Steering(BoidAgent agent, BoidFormation formation, Vector3? enemyPosition)
     {
         Vector3 separation = Vector3.zero; // 分离量
         Vector3 velocitySum = Vector3.zero; // 速度量
@@ -63,6 +71,7 @@ public class BoidFlock
             force += offsetSum / neighbors * CohesionWeight;
         }
         force += (formation.Velocity - agent.Velocity) * FormationFollowWeight;
+        force += agent.GetAttackAcceleration(enemyPosition);
         force += formation.GetReturnAcceleration(agent.Position, agent.Velocity);
         return Vector3.ClampMagnitude(force, MaxAcceleration);
     }

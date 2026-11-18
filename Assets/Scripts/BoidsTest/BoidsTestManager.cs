@@ -11,6 +11,9 @@ public class BoidsTestManager : MonoBehaviour
     [SerializeField, Range(0, 6), Tooltip("靠近邻居的中心")] float cohesionWeight = 0.8f;
     [FormerlySerializedAs("mouseWeight")]
     [SerializeField, Range(0, 6), Tooltip("匹配阵型移动速度的强度，设为零可关闭主动追随")] float formationFollowWeight = 1.6f;
+    [SerializeField, Min(0), Tooltip("追敌转向权重，实际值最高为阵型追随权重的 90%")] float attackWeight = 0.6f;
+    [SerializeField, Min(0), Tooltip("每个单位发现敌人的距离，世界单位")] float alertRange = 5f;
+    [SerializeField, Min(0), Tooltip("接近到此距离后结束追敌，实际值不超过警戒范围")] float attackRange = 1.2f;
     [SerializeField, Tooltip("阵型边界：AABB 沿世界轴，OBB 随阵型朝向旋转")] FormationBoundsType formationBoundsType = FormationBoundsType.Obb;
     [SerializeField, Tooltip("阵型的宽度和深度，OBB 模式下沿阵型的左右和前后方向")] Vector2 formationSize = new Vector2(8, 5);
     [SerializeField, Min(0), Tooltip("阵型中心移向鼠标左键点击位置的速度，世界单位/秒")] float formationSpeed = 3f;
@@ -27,6 +30,8 @@ public class BoidsTestManager : MonoBehaviour
     const int Count = 64;
     readonly Plane ground = new Plane(Vector3.up, Vector3.zero);
     Mesh arrow;
+    Material enemyMaterial;
+    Transform enemy;
     BoidFlock flock;
     BoidFormation formation;
     LineRenderer formationOutline;
@@ -69,6 +74,13 @@ public class BoidsTestManager : MonoBehaviour
             agents[i] = new BoidAgent(boid.transform, position, heading);
         }
         flock = new BoidFlock(agents);
+        var enemyObject = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        enemyObject.name = "Enemy";
+        enemyObject.transform.SetParent(transform, false);
+        enemyObject.transform.position = new Vector3(6, 0.5f, 0);
+        enemyMaterial = new Material(boidMaterial) { color = new Color(1f, 0.15f, 0.1f) };
+        enemyObject.GetComponent<Renderer>().sharedMaterial = enemyMaterial;
+        enemy = enemyObject.transform;
     }
 
     void Update()
@@ -84,18 +96,21 @@ public class BoidsTestManager : MonoBehaviour
         flock.AlignmentWeight = alignmentWeight;
         flock.CohesionWeight = cohesionWeight;
         flock.FormationFollowWeight = formationFollowWeight;
+        flock.SetAttackParameters(alertRange, attackRange, attackWeight);
         flock.SetRotationParameters(agentTurnSpeed, agentRotationDeadZone, agentMinHeadingSpeed, formationFacingBias);
         formation.BoundsType = formationBoundsType;
         formation.SetSize(formationSize);
         formation.SetRotationParameters(formationTurnSpeed, formationRotationDeadZone, formationMinHeadingSpeed);
         formation.Step(moveTarget, formationSpeed, Time.fixedDeltaTime);
-        flock.Step(Time.fixedDeltaTime, formation);
+        Vector3? enemyPosition = enemy != null ? (Vector3?)enemy.position : null;
+        flock.Step(Time.fixedDeltaTime, formation, enemyPosition);
         UpdateFormationView();
     }
 
     void OnDestroy()
     {
         if (arrow != null) Destroy(arrow);
+        if (enemyMaterial != null) Destroy(enemyMaterial);
     }
 
     Vector3? MouseTarget()

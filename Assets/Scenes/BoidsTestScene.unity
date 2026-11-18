@@ -358,6 +358,9 @@ MonoBehaviour:
   alignmentWeight: 1
   cohesionWeight: 0.8
   formationFollowWeight: 1.6
+  attackWeight: 0.6
+  alertRange: 5
+  attackRange: 1.2
   formationBoundsType: 1
   formationSize: {x: 8, y: 5}
   formationSpeed: 3
