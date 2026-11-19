@@ -25,8 +25,11 @@ namespace FormationLab
         }
 
         // 对膨胀后的障碍做线段检测，保留切向位移。出生点必须在障碍外。
-        internal Vector2 Slide(Vector2 from, Vector2 to, float radius)
+        internal bool TrySlide(Vector2 from, Vector2 to, float radius, out float hitTime,
+            out Vector2 contact, out Vector2 slideEnd)
         {
+            hitTime = 1f;
+            contact = slideEnd = to;
             Vector2 start = LocalPoint(from);
             Vector2 end = LocalPoint(to);
             Vector2 delta = end - start;
@@ -39,10 +42,15 @@ namespace FormationLab
                 if (time < 0 || time > 1) continue;
                 int tangent = 1 - axis;
                 if (Mathf.Abs(start[tangent] + delta[tangent] * time) > extent[tangent]) continue;
+                hitTime = time;
                 end[axis] = face - Mathf.Sign(delta[axis]) * 0.0001f;
-                return WorldPoint(end);
+                Vector2 hit = start + delta * time;
+                hit[axis] = end[axis];
+                contact = WorldPoint(hit);
+                slideEnd = WorldPoint(end);
+                return true;
             }
-            return to;
+            return false;
         }
 
         Vector2 LocalPoint(Vector2 point)
