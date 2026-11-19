@@ -6,9 +6,11 @@ namespace FormationLab
     {
         [SerializeField] Camera groundCamera = null;
         [SerializeField, Min(0), Tooltip("阵型中心每秒移动的世界距离")] float marchSpeed = 2.5f;
-        [SerializeField, Min(0), Tooltip("阵型跟随和越界归队的加速度权重")] float followWeight = 1f;
-        [SerializeField, Min(0), Tooltip("友方分离、对齐和聚合的加速度权重")] float neighborsWeight = 1f;
-        [SerializeField, Min(0), Tooltip("对感知范围内所有敌人的加速度之和的权重")] float enemyWeight = 1f;
+        [SerializeField, Range(0.001f, 3f), Tooltip("阵型跟随和越界归队的加速度权重")] float followWeight = 1f;
+        [SerializeField, Range(0.001f, 3f), Tooltip("友方分离、对齐和聚合的总权重")] float neighborsWeight = 1f;
+        [SerializeField, Range(0.001f, 3f), Tooltip("对感知范围内所有敌人的加速度之和的权重")] float enemyWeight = 1f;
+        [SerializeField, Tooltip("分别调节友方邻居的三种影响")] NeighborWeights neighborBehaviors =
+            new NeighborWeights { cohesion = 0.3f, separation = 1f, alignment = 0.6f };
 
         const int TeamSize = 24;
         const int TeamCount = 2;
@@ -32,6 +34,17 @@ namespace FormationLab
             simulation = new FlockSimulation(formations, new FlockMap(wall), units);
         }
 
+        void OnValidate()
+        {
+            // 旧场景可能保存了 0 或超过新上限的权重。
+            followWeight = Mathf.Clamp(followWeight, 0.001f, 3f);
+            neighborsWeight = Mathf.Clamp(neighborsWeight, 0.001f, 3f);
+            enemyWeight = Mathf.Clamp(enemyWeight, 0.001f, 3f);
+            neighborBehaviors.cohesion = Mathf.Clamp(neighborBehaviors.cohesion, 0.001f, 3f);
+            neighborBehaviors.separation = Mathf.Clamp(neighborBehaviors.separation, 0.001f, 3f);
+            neighborBehaviors.alignment = Mathf.Clamp(neighborBehaviors.alignment, 0.001f, 3f);
+        }
+
         void Update()
         {
             bool left = Input.GetMouseButtonDown(0);
@@ -47,7 +60,7 @@ namespace FormationLab
 
         void FixedUpdate()
         {
-            simulation.Step(marchSpeed, Time.fixedDeltaTime, followWeight, neighborsWeight, enemyWeight);
+            simulation.Step(marchSpeed, Time.fixedDeltaTime, followWeight, neighborsWeight, enemyWeight, neighborBehaviors);
             for (int i = 0; i < formations.Length; i++) SyncFrame(i);
             for (int i = 0; i < units.Length; i++)
                 unitViews[i].position = Ground(units[i].Position, FlockUnit.Radius);

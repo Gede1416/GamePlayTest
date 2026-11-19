@@ -2,6 +2,14 @@ using UnityEngine;
 
 namespace FormationLab
 {
+    [System.Serializable]
+    internal struct NeighborWeights
+    {
+        [Range(0.001f, 3f), Tooltip("靠近友方邻居中心的权重")] public float cohesion;
+        [Range(0.001f, 3f), Tooltip("与过近的友方邻居拉开距离的权重")] public float separation;
+        [Range(0.001f, 3f), Tooltip("跟随友方邻居平均速度的权重")] public float alignment;
+    }
+
     internal sealed class FlockSimulation
     {
         readonly MarchingFormation[] formations;
@@ -17,14 +25,15 @@ namespace FormationLab
             nextPositions = new Vector2[units.Length];
         }
 
-        internal void Step(float marchSpeed, float dt, float followWeight, float neighborsWeight, float enemyWeight)
+        internal void Step(float marchSpeed, float dt, float followWeight, float neighborsWeight, float enemyWeight,
+            NeighborWeights neighborWeights)
         {
             foreach (MarchingFormation formation in formations) formation.Advance(marchSpeed, dt);
             for (int i = 0; i < units.Length; i++)
             {
                 FlockUnit unit = units[i];
                 Vector2 follow = unit.Formation.GetAcceleration(unit, out float catchUpSpeed);
-                GetUnitInfluences(i, out Vector2 neighbors, out Vector2 enemy);
+                GetUnitInfluences(i, neighborWeights, out Vector2 neighbors, out Vector2 enemy);
                 Vector2 acceleration = follow * followWeight + neighbors * neighborsWeight + enemy * enemyWeight;
                 Vector2 candidate = unit.PredictPosition(acceleration, marchSpeed + 0.7f + catchUpSpeed, dt);
                 nextPositions[i] = map.ResolveMove(unit.Position, candidate, FlockUnit.Radius);
@@ -34,7 +43,7 @@ namespace FormationLab
                 units[i].ApplyPosition(nextPositions[i], dt);
         }
 
-        void GetUnitInfluences(int index, out Vector2 neighbors, out Vector2 enemy)
+        void GetUnitInfluences(int index, NeighborWeights weights, out Vector2 neighbors, out Vector2 enemy)
         {
             FlockUnit self = units[index];
             Vector2 separation = Vector2.zero;
@@ -62,7 +71,8 @@ namespace FormationLab
                 cohesion += offset;
                 nearby++;
             }
-            neighbors = nearby == 0 ? Vector2.zero : separation + (alignment * 0.6f + cohesion * 0.3f) / nearby;
+            neighbors = nearby == 0 ? Vector2.zero : separation * weights.separation
+                + (alignment * weights.alignment + cohesion * weights.cohesion) / nearby;
         }
     }
 }
