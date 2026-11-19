@@ -27,13 +27,6 @@ public class BoidFlock
             agents[i].SetAttackParameters(alertRange, attackRange, weight);
     }
 
-    public void SetRotationParameters(float turnSpeed, float rotationDeadZone, float minHeadingSpeed,
-        float formationFacingBias)
-    {
-        for (int i = 0; i < agents.Length; i++)
-            agents[i].SetRotationParameters(turnSpeed, rotationDeadZone, minHeadingSpeed, formationFacingBias);
-    }
-
     public void Step(float deltaTime, BoidFormation formation, Vector3? enemyPosition = null)
     {
         for (int i = 0; i < agents.Length; i++)

@@ -13,9 +13,9 @@ public class BoidFormation
     public const float AgentRadius = 0.36f;
     const float ReturnStrength = 8f;
     const float ReturnDamping = 2f;
-    float minHeadingSpeed = 0.2f;
-    float rotationDeadZone = 3f;
-    float turnSpeed = 120f;
+    const float MinHeadingSpeed = 0.2f;
+    const float RotationDeadZone = 3f;
+    const float TurnSpeed = 120f;
 
     public FormationBoundsType BoundsType { get; set; }
     public Vector3 Center { get; private set; }
@@ -38,22 +38,15 @@ public class BoidFormation
         Size = new Vector2(Mathf.Max(AgentRadius * 2, size.x), Mathf.Max(AgentRadius * 2, size.y));
     }
 
-    public void SetRotationParameters(float turnSpeed, float rotationDeadZone, float minHeadingSpeed)
-    {
-        this.turnSpeed = Mathf.Max(0, turnSpeed);
-        this.rotationDeadZone = Mathf.Clamp(rotationDeadZone, 0, 180);
-        this.minHeadingSpeed = Mathf.Max(0, minHeadingSpeed);
-    }
-
     public void Step(Vector3? target, float speed, float deltaTime)
     {
         // 读取上一步速度，过滤低速方向噪声，并限制边框每秒的旋转角度。
-        if (Velocity.sqrMagnitude > minHeadingSpeed * minHeadingSpeed)
+        if (Velocity.sqrMagnitude > MinHeadingSpeed * MinHeadingSpeed)
         {
             Quaternion current = Quaternion.LookRotation(Forward);
             Quaternion desired = Quaternion.LookRotation(Velocity);
-            if (Quaternion.Angle(current, desired) > rotationDeadZone)
-                Forward = Quaternion.RotateTowards(current, desired, turnSpeed * deltaTime) * Vector3.forward;
+            if (Quaternion.Angle(current, desired) > RotationDeadZone)
+                Forward = Quaternion.RotateTowards(current, desired, TurnSpeed * deltaTime) * Vector3.forward;
         }
 
         Vector3 center = Center;

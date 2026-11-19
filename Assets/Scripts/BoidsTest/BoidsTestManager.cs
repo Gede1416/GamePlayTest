@@ -17,17 +17,8 @@ public class BoidsTestManager : MonoBehaviour
     [SerializeField, Tooltip("阵型边界：AABB 沿世界轴，OBB 随阵型朝向旋转")] FormationBoundsType formationBoundsType = FormationBoundsType.Obb;
     [SerializeField, Tooltip("阵型的宽度和深度，OBB 模式下沿阵型的左右和前后方向")] Vector2 formationSize = new Vector2(8, 5);
     [SerializeField, Min(0), Tooltip("阵型中心移向鼠标左键点击位置的速度，世界单位/秒")] float formationSpeed = 3f;
-    [Header("阵型偏转")]
-    [SerializeField, Min(0), Tooltip("阵型每秒最多旋转的角度，设为零可停止旋转")] float formationTurnSpeed = 120f;
-    [SerializeField, Range(0, 180), Tooltip("阵型朝向差小于此角度时不转向")] float formationRotationDeadZone = 3f;
-    [SerializeField, Min(0), Tooltip("阵型速度低于此值时保持朝向，世界单位/秒")] float formationMinHeadingSpeed = 0.2f;
-    [Header("单位偏转")]
-    [SerializeField, Min(0), Tooltip("单位每秒最多旋转的角度，设为零可停止旋转")] float agentTurnSpeed = 180f;
-    [SerializeField, Range(0, 180), Tooltip("单位朝向差小于此角度时不转向")] float agentRotationDeadZone = 3f;
-    [SerializeField, Min(0), Tooltip("单位速度低于此值时使用阵型朝向，世界单位/秒")] float agentMinHeadingSpeed = 0.2f;
-    [SerializeField, Range(0, 1), Tooltip("零为单位运动方向，一为阵型朝向；低速时使用阵型朝向")] float formationFacingBias = 0.65f;
 
-    const int Count = 64;
+    const int Count = 1024;
     readonly Plane ground = new Plane(Vector3.up, Vector3.zero);
     Mesh arrow;
     Material enemyMaterial;
@@ -97,10 +88,8 @@ public class BoidsTestManager : MonoBehaviour
         flock.CohesionWeight = cohesionWeight;
         flock.FormationFollowWeight = formationFollowWeight;
         flock.SetAttackParameters(alertRange, attackRange, attackWeight);
-        flock.SetRotationParameters(agentTurnSpeed, agentRotationDeadZone, agentMinHeadingSpeed, formationFacingBias);
         formation.BoundsType = formationBoundsType;
         formation.SetSize(formationSize);
-        formation.SetRotationParameters(formationTurnSpeed, formationRotationDeadZone, formationMinHeadingSpeed);
         formation.Step(moveTarget, formationSpeed, Time.fixedDeltaTime);
         Vector3? enemyPosition = enemy != null ? (Vector3?)enemy.position : null;
         flock.Step(Time.fixedDeltaTime, formation, enemyPosition);
