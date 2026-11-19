@@ -6,6 +6,9 @@ namespace FormationLab
     {
         [SerializeField] Camera groundCamera = null;
         [SerializeField, Min(0), Tooltip("阵型中心每秒移动的世界距离")] float marchSpeed = 2.5f;
+        [SerializeField, Min(0), Tooltip("阵型跟随和越界归队的加速度权重")] float followWeight = 1f;
+        [SerializeField, Min(0), Tooltip("友方分离、对齐和聚合的加速度权重")] float neighborsWeight = 1f;
+        [SerializeField, Min(0), Tooltip("对感知范围内所有敌人的加速度之和的权重")] float enemyWeight = 1f;
 
         const int TeamSize = 24;
         const int TeamCount = 2;
@@ -44,7 +47,7 @@ namespace FormationLab
 
         void FixedUpdate()
         {
-            simulation.Step(marchSpeed, Time.fixedDeltaTime);
+            simulation.Step(marchSpeed, Time.fixedDeltaTime, followWeight, neighborsWeight, enemyWeight);
             for (int i = 0; i < formations.Length; i++) SyncFrame(i);
             for (int i = 0; i < units.Length; i++)
                 unitViews[i].position = Ground(units[i].Position, FlockUnit.Radius);

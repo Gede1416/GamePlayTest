@@ -17,16 +17,15 @@ namespace FormationLab
             nextPositions = new Vector2[units.Length];
         }
 
-        internal void Step(float marchSpeed, float dt)
+        internal void Step(float marchSpeed, float dt, float followWeight, float neighborsWeight, float enemyWeight)
         {
             foreach (MarchingFormation formation in formations) formation.Advance(marchSpeed, dt);
             for (int i = 0; i < units.Length; i++)
             {
                 FlockUnit unit = units[i];
                 Vector2 follow = unit.Formation.GetAcceleration(unit, out float catchUpSpeed);
-                Vector2 neighbors = NeighborAcceleration(i, out FlockUnit nearestEnemy);
-                Vector2 enemy = nearestEnemy == null ? Vector2.zero : unit.EnemyAcceleration(nearestEnemy.Position);
-                Vector2 acceleration = follow + neighbors + enemy;
+                GetUnitInfluences(i, out Vector2 neighbors, out Vector2 enemy);
+                Vector2 acceleration = follow * followWeight + neighbors * neighborsWeight + enemy * enemyWeight;
                 Vector2 candidate = unit.PredictPosition(acceleration, marchSpeed + 0.7f + catchUpSpeed, dt);
                 nextPositions[i] = map.ResolveMove(unit.Position, candidate, FlockUnit.Radius);
             }
@@ -35,29 +34,23 @@ namespace FormationLab
                 units[i].ApplyPosition(nextPositions[i], dt);
         }
 
-        Vector2 NeighborAcceleration(int index, out FlockUnit nearestEnemy)
+        void GetUnitInfluences(int index, out Vector2 neighbors, out Vector2 enemy)
         {
             FlockUnit self = units[index];
             Vector2 separation = Vector2.zero;
             Vector2 alignment = Vector2.zero;
             Vector2 cohesion = Vector2.zero;
             int nearby = 0;
-            nearestEnemy = null;
-            float nearestEnemySq = float.PositiveInfinity;
+            enemy = Vector2.zero;
             for (int i = 0; i < units.Length; i++)
             {
                 if (i == index) continue;
-                Vector2 offset = units[i].Position - self.Position;
                 if (units[i].Formation != self.Formation)
                 {
-                    float distanceSq = offset.sqrMagnitude;
-                    if (distanceSq < nearestEnemySq)
-                    {
-                        nearestEnemy = units[i];
-                        nearestEnemySq = distanceSq;
-                    }
+                    enemy += self.EnemyAcceleration(units[i].Position);
                     continue;
                 }
+                Vector2 offset = units[i].Position - self.Position;
                 float distance = offset.magnitude;
                 if (distance > 1.6f) continue;
                 if (distance < 0.85f)
@@ -69,7 +62,7 @@ namespace FormationLab
                 cohesion += offset;
                 nearby++;
             }
-            return nearby == 0 ? Vector2.zero : separation + (alignment * 0.6f + cohesion * 0.3f) / nearby;
+            neighbors = nearby == 0 ? Vector2.zero : separation + (alignment * 0.6f + cohesion * 0.3f) / nearby;
         }
     }
 }
