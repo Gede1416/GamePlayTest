@@ -7,81 +7,95 @@ namespace FormationLab
         [SerializeField] Camera groundCamera = null;
         [SerializeField, Min(0), Tooltip("阵型中心每秒移动的世界距离")] float marchSpeed = 2.5f;
 
-        const int Count = 24;
-        readonly FlockUnit[] units = new FlockUnit[Count];
-        readonly Transform[] unitViews = new Transform[Count];
-        MarchingFormation formation;
+        const int TeamSize = 24;
+        const int TeamCount = 2;
+        readonly FlockUnit[] units = new FlockUnit[TeamSize * TeamCount];
+        readonly Transform[] unitViews = new Transform[TeamSize * TeamCount];
+        readonly MarchingFormation[] formations = new MarchingFormation[TeamCount];
+        readonly Transform[] frames = new Transform[TeamCount];
         FlockSimulation simulation;
-        Transform frame;
-        Transform enemy;
-        Vector2 destination;
 
         void Awake()
         {
-            var bounds = new GroundBox
-            {
-                Center = new Vector2(-5, 0), Forward = Vector2.up, HalfSize = new Vector2(3, 2)
-            };
             var wall = new GroundBox
             {
                 Center = new Vector2(2, 2), Forward = new Vector2(0.6f, 0.8f), HalfSize = new Vector2(0.35f, 2.5f)
             };
-            formation = new MarchingFormation(bounds);
-            destination = bounds.Center;
-            frame = new GameObject("Formation").transform;
-            frame.SetParent(transform, false);
-            Color edge = new Color(0.3f, 0.8f, 0.7f);
-            for (int sign = -1; sign <= 1; sign += 2)
-            {
-                MakeView("Edge", PrimitiveType.Cube, frame, new Vector3(sign * bounds.HalfSize.x, 0, 0),
-                    new Vector3(0.05f, 0.05f, bounds.HalfSize.y * 2), edge);
-                MakeView("Edge", PrimitiveType.Cube, frame, new Vector3(0, 0, sign * bounds.HalfSize.y),
-                    new Vector3(bounds.HalfSize.x * 2, 0.05f, 0.05f), edge);
-            }
-            SyncFrame();
             Transform barrier = MakeView("Wall", PrimitiveType.Cube, transform, Ground(wall.Center, 0.3f),
                 new Vector3(wall.HalfSize.x * 2, 0.6f, wall.HalfSize.y * 2), Color.gray);
             barrier.rotation = Quaternion.LookRotation(Ground(wall.Forward));
-            enemy = MakeView("Enemy", PrimitiveType.Sphere, transform, new Vector3(-2, 0.35f, -1),
-                Vector3.one * 0.7f, Color.red);
-            for (int i = 0; i < Count; i++)
-            {
-                bool ranged = i % 2 == 1;
-                Vector2 position = bounds.Center + new Vector2((i % 6 - 2.5f) * 0.85f, (i / 6 - 1.5f) * 0.8f);
-                if (i == 0) position.x -= 2;
-                Transform view = MakeView(ranged ? "Ranged" : "Melee", PrimitiveType.Sphere, transform,
-                    Ground(position, FlockUnit.Radius), Vector3.one * (FlockUnit.Radius * 2),
-                    ranged ? new Color(0.25f, 0.65f, 1) : new Color(1, 0.72f, 0.12f));
-                unitViews[i] = view;
-                units[i] = new FlockUnit(formation, ranged ? UnitType.Ranged : UnitType.Melee, position);
-            }
-            simulation = new FlockSimulation(formation, new FlockMap(wall), units);
+            CreateTeam(0, new Vector2(-6, 0), Vector2.right, new Color(0.2f, 0.66f, 1));
+            CreateTeam(1, new Vector2(6, 0), Vector2.left, new Color(1, 0.57f, 0.12f));
+            simulation = new FlockSimulation(formations, new FlockMap(wall), units);
         }
 
         void Update()
         {
-            bool moveFormation = Input.GetMouseButtonDown(0);
-            if (!moveFormation && !Input.GetMouseButtonDown(1)) return;
-            if (!groundCamera.pixelRect.Contains(Input.mousePosition)) return;
+            bool left = Input.GetMouseButtonDown(0);
+            bool right = Input.GetMouseButtonDown(1);
+            if ((!left && !right) || !groundCamera.pixelRect.Contains(Input.mousePosition)) return;
             Ray ray = groundCamera.ScreenPointToRay(Input.mousePosition);
             if (!new Plane(Vector3.up, Vector3.zero).Raycast(ray, out float distance)) return;
             Vector3 hit = ray.GetPoint(distance);
-            if (moveFormation) destination = new Vector2(hit.x, hit.z);
-            else enemy.position = new Vector3(hit.x, 0.35f, hit.z);
+            Vector2 destination = new Vector2(hit.x, hit.z);
+            if (left) formations[0].Destination = destination;
+            if (right) formations[1].Destination = destination;
         }
 
         void FixedUpdate()
         {
-            Vector2 target = new Vector2(enemy.position.x, enemy.position.z);
-            simulation.Step(destination, target, marchSpeed, Time.fixedDeltaTime);
-            SyncFrame();
+            simulation.Step(marchSpeed, Time.fixedDeltaTime);
+            for (int i = 0; i < formations.Length; i++) SyncFrame(i);
             for (int i = 0; i < units.Length; i++)
                 unitViews[i].position = Ground(units[i].Position, FlockUnit.Radius);
         }
 
-        void SyncFrame()
+        void CreateTeam(int team, Vector2 center, Vector2 forward, Color color)
         {
-            frame.SetPositionAndRotation(Ground(formation.Bounds.Center, 0.04f), Quaternion.LookRotation(Ground(formation.Bounds.Forward)));
+            // 局部 y 对应前方，长边沿行进方向。
+            var bounds = new GroundBox { Center = center, Forward = forward, HalfSize = new Vector2(2, 3) };
+            var formation = new MarchingFormation(bounds);
+            formations[team] = formation;
+            Transform teamRoot = new GameObject("Team " + (team + 1)).transform;
+            teamRoot.SetParent(transform, false);
+            Transform frame = new GameObject("Formation").transform;
+            frame.SetParent(teamRoot, false);
+            frames[team] = frame;
+            DrawOutline(frame, bounds.HalfSize, color);
+            DrawOutline(frame, formation.GetBounds(UnitType.Ranged).HalfSize, Color.Lerp(color, Color.white, 0.45f));
+            SyncFrame(team);
+
+            for (int i = 0; i < TeamSize; i++)
+            {
+                bool ranged = i >= TeamSize / 2;
+                int slot = i % (TeamSize / 2);
+                Vector2 local = ranged
+                    ? new Vector2((slot % 3 - 1) * 0.75f, (slot / 3 - 1.5f) * 0.8f)
+                    : new Vector2(slot % 2 == 0 ? -1.6f : 1.6f, (slot / 2 - 2.5f) * 0.95f);
+                Vector2 position = bounds.WorldPoint(local);
+                int index = team * TeamSize + i;
+                units[index] = new FlockUnit(formation, ranged ? UnitType.Ranged : UnitType.Melee, position);
+                unitViews[index] = MakeView(ranged ? "Ranged" : "Melee",
+                    ranged ? PrimitiveType.Cube : PrimitiveType.Sphere, teamRoot, Ground(position, FlockUnit.Radius),
+                    Vector3.one * FlockUnit.Radius * (ranged ? 1.4f : 2f), color);
+            }
+        }
+
+        void DrawOutline(Transform frame, Vector2 halfSize, Color color)
+        {
+            for (int sign = -1; sign <= 1; sign += 2)
+            {
+                MakeView("Edge", PrimitiveType.Cube, frame, new Vector3(sign * halfSize.x, 0, 0),
+                    new Vector3(0.05f, 0.05f, halfSize.y * 2), color);
+                MakeView("Edge", PrimitiveType.Cube, frame, new Vector3(0, 0, sign * halfSize.y),
+                    new Vector3(halfSize.x * 2, 0.05f, 0.05f), color);
+            }
+        }
+
+        void SyncFrame(int team)
+        {
+            GroundBox bounds = formations[team].GetBounds(UnitType.Melee);
+            frames[team].SetPositionAndRotation(Ground(bounds.Center, 0.04f), Quaternion.LookRotation(Ground(bounds.Forward)));
         }
 
         static Vector3 Ground(Vector2 position, float height = 0)
