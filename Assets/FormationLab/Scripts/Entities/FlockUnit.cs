@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace FormationLab
@@ -33,6 +34,13 @@ namespace FormationLab
             return toward * Mathf.Clamp(error * 4, -5, 5);
         }
 
+        // 计算单个对象带来的 影响
+        public Vector2 UnitAcceleration(FlockUnitData unitData)
+        {
+            //根据 FlockUnitData 中的信息 分辨状态获取数据 进行计算
+            return Vector2.zero;
+        }
+
         internal Vector2 PredictPosition(Vector2 acceleration, float speedLimit, float dt)
         {
             Vector2 velocity = Vector2.ClampMagnitude(Velocity + Vector2.ClampMagnitude(acceleration, MaxAcceleration) * dt, speedLimit);
@@ -44,5 +52,35 @@ namespace FormationLab
             Velocity = (position - Position) / dt;
             Position = position;
         }
+    }
+
+    struct NeighborWeight
+    {
+        float f_n_w; // 友方接近权重
+        float f_f_w; // 友方远离权重
+        float e_n_w; // 敌方接近权重
+        float e_f_w; // 敌方远离权重
+    }
+
+    struct Neighbor接近
+    {
+        float f; // 友方
+        float e; // 敌方
+    }
+
+    struct Neighbor远离
+    {
+        float f; // 友方
+        float e; // 敌方
+    }
+
+
+    public class FlockUnitData
+    {
+        private UnitType unitType;
+        private int teamId;
+        private Dictionary<UnitType, NeighborWeight> w = new(); //根据类型获取对应权重
+        private Dictionary<UnitType, Neighbor接近> n = new(); //根据类型获取对应权重
+        private Dictionary<UnitType, Neighbor远离> f = new(); //根据类型获取对应权重
     }
 }
