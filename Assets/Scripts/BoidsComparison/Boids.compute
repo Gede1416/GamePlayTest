@@ -1,0 +1,49 @@
+#pragma kernel Step
+
+struct Boid
+{
+    float2 position;
+    float2 velocity;
+};
+
+StructuredBuffer<Boid> _Previous;
+RWStructuredBuffer<Boid> _Next;
+uint _Count;
+float _DeltaTime;
+float3 _Weights;
+
+[numthreads(64, 1, 1)]
+void Step(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= _Count) return;
+    Boid self = _Previous[id.x];
+    float2 separation = 0, velocitySum = 0, offsetSum = 0;
+    int neighbors = 0;
+
+    for (uint i = 0; i < _Count; i++)
+    {
+        if (i == id.x) continue;
+        Boid other = _Previous[i];
+        float2 offset = other.position - self.position;
+        offset -= 18.0 * round(offset / 18.0);
+        float distanceSq = dot(offset, offset);
+        if (distanceSq > 2.5 * 2.5) continue;
+        if (distanceSq < 1.0) separation -= offset / max(distanceSq, 0.01);
+        velocitySum += other.velocity;
+        offsetSum += offset;
+        neighbors++;
+    }
+
+    if (neighbors > 0)
+    {
+        float2 alignment = velocitySum / neighbors - self.velocity;
+        float2 cohesion = offsetSum / neighbors;
+        float2 v = self.velocity + _DeltaTime *
+            (separation * _Weights.x + alignment * _Weights.y + cohesion * _Weights.z);
+        float speedSq = dot(v, v);
+        if (speedSq > 1.17549435e-38) self.velocity = v * (2.5 * rsqrt(speedSq));
+    }
+    self.position += self.velocity * _DeltaTime;
+    self.position -= 18.0 * floor(self.position / 18.0 + 0.5);
+    _Next[id.x] = self;
+}
