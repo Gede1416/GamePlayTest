@@ -1,6 +1,6 @@
 # ReGoap 使用测试场景
 
-打开 `Assets/Scenes/ReGoapTestScene.unity`，点击 Unity 的播放按钮即可。无须手动挂组件或配置引用。
+打开 `Assets/TestFeatures/ReGoapTest/Scenes/ReGoapTestScene.unity`，点击 Unity 的播放按钮即可。无须手动挂组件或配置引用。
 
 - 青色胶囊：Agent；金色长方体：武器；红色胶囊：敌人。
 - 默认有武器：`Take weapon → Approach enemy → Sword attack`，规划成本 3。
@@ -25,5 +25,5 @@
 场景引用与结构检查，在 Unity 项目根目录运行：
 
 ```powershell
-python _validate_scene.py Assets/Scenes/ReGoapTestScene.unity
+python _validate_scene.py Assets/TestFeatures/ReGoapTest/Scenes/ReGoapTestScene.unity
 ```
