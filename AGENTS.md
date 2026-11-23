@@ -75,7 +75,7 @@ Unity 项目 `My project`，3D 俯视角，**y 为高度**（地面在 XZ 平面
   - 四个预制体里的 `map` 字段全是空的：运行时 `BattleManager` 把地图实例发给 `Entity`，`Entity.Init` 再转给 AutoPilot / Skills
 - 编辑器工具 `Assets/Editor/SceneAutoReload.cs`：磁盘上的 `.unity` 一变就自动重新加载当前场景（内存里未保存的版本先另存到 `Temp/编辑器未保存版本_*.unity`）；菜单 `Tools/场景以磁盘为准` 开关（默认开）、`Tools/重新加载当前场景（以磁盘为准）` 手动触发；播放中不动场景
 
-## MaterialPropertyBlock 批处理测试场（Assets/TestFeatures/MPBTest/Scenes/MPBTestScene.unity）
+## MaterialPropertyBlock 批处理测试场（Assets/TestFeatures/MPBTest/MPBTestScene.unity）
 
 **结论（2026-09-17 核实，都有出处）**：项目是 **Built-in RP**（没有 URP / HDRP 包）→ **没有 SRP Batcher**，「MPB 破坏 SRP Batcher」不适用；
 Built-in 下 MPB 是喂 GPU Instancing 逐实例数据的正道，但属性必须在着色器里声明成逐实例（`UNITY_DEFINE_INSTANCED_PROP`），
@@ -94,9 +94,9 @@ Built-in 下 MPB 是喂 GPU Instancing 逐实例数据的正道，但属性必�
 | 5 | 每物体一份 `renderer.material` | 反面教材：材质数 = 方块数，SetPass 暴涨 |
 | 6 | `Graphics.DrawMeshInstanced` + MPB 数组 | 1 次调用画 1023 个，绕开 GameObject / Renderer |
 
-- 文件：`Assets/TestFeatures/MPBTest/Scripts/MPBTestManager.cs`（自己 `Awake → Build()` 起，没挂进战斗的 Init 链）、`Assets/TestFeatures/MPBTest/Shaders/MPBTint.shader`、`Assets/TestFeatures/MPBTest/Scenes/MPBTestScene.unity`（只有相机 / 灯光 / `MPBTest` 一个物体，方块运行期造，灯光阴影关掉）。
+- 文件：`Assets/TestFeatures/MPBTest/Scripts/MPBTestManager.cs`（自己 `Awake → Build()` 起，没挂进战斗的 Init 链）、`Assets/TestFeatures/MPBTest/Shaders/MPBTint.shader`、`Assets/TestFeatures/MPBTest/MPBTestScene.unity`（只有相机 / 灯光 / `MPBTest` 一个物体，方块运行期造，灯光阴影关掉）。
 - 有意留下的缺口：着色器靠 `Shader.Find` 找，**打包会被剔除**（要打包就给它建个材质资产）；HUD 是英文 IMGUI；跑分要自己按 1→6。
-- 提交这个场景改动前的自检：`python _validate_scene.py Assets/TestFeatures/MPBTest/Scenes/MPBTestScene.unity`（脚本支持传场景路径，默认查主场景）。
+- 提交这个场景改动前的自检：`python _validate_scene.py Assets/TestFeatures/MPBTest/MPBTestScene.unity`（脚本支持传场景路径，默认查主场景）。
 
 ## 约定
 
