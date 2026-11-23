@@ -1,1 +1,11 @@
-{"name": "ToLua.Editor", "references": ["FairyGUI"], "includePlatforms": ["Editor"]}
+{
+    "name": "ToLua.Editor",
+    "references": ["FairyGUI"],
+    "includePlatforms": ["Editor"],
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "CString.dll",
+        "Debugger.dll",
+        "Mono.Cecil.dll"
+    ]
+}
